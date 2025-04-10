@@ -9,7 +9,7 @@ export interface Album {
     spotify: string
     apple: string
   }
-  videoId: string // YouTube video ID for background
+  backgroundVideoPath: string | null // Renamed from videoId, allows null
 }
 
 // Helper function to format release date in a more natural way using UTC
@@ -67,7 +67,7 @@ export const albums: Album[] = [
       spotify: "https://open.spotify.com/track/3W14qXAuDe2pxtVTecvSZ5?si=d16518f5cbab462d&nd=1&dlsi=f609d359e423487b",
       apple: "https://music.apple.com/ca/album/blessings-single/1800816463",
     },
-    videoId: "eVOLxV4rdz4", 
+    backgroundVideoPath: "/videos/blessings.mp4", // Updated path
   },
   {
     id: 2,
@@ -80,7 +80,7 @@ export const albums: Album[] = [
       spotify: "https://open.spotify.com/track/example2",
       apple: "https://music.apple.com/album/example2",
     },
-    videoId: "dQw4w9WgXcQ", 
+    backgroundVideoPath: null, // No video for others yet
   },
   {
     id: 3,
@@ -93,7 +93,7 @@ export const albums: Album[] = [
       spotify: "https://open.spotify.com/track/example3",
       apple: "https://music.apple.com/album/example3",
     },
-    videoId: "dQw4w9WgXcQ", 
+    backgroundVideoPath: null, 
   },
   {
     id: 4,
@@ -106,7 +106,7 @@ export const albums: Album[] = [
       spotify: "https://open.spotify.com/track/example4",
       apple: "https://music.apple.com/album/example4",
     },
-    videoId: "dQw4w9WgXcQ", 
+    backgroundVideoPath: null, 
   },
   {
     id: 5,
@@ -119,6 +119,6 @@ export const albums: Album[] = [
       spotify: "https://open.spotify.com/track/example5",
       apple: "https://music.apple.com/album/example5",
     },
-    videoId: "dQw4w9WgXcQ", 
+    backgroundVideoPath: null, 
   },
 ]
