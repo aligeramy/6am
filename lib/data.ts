@@ -97,7 +97,7 @@ export const albums: Album[] = [
   },
   {
     id: 4,
-    title: "Summer song",
+    title: "TBA",
     coverImage: "/placeholder.jpg",
     releaseTimestamp: new Date('2025-05-15'),
     isUnlocked: false,
