@@ -3,26 +3,18 @@ import BackgroundVideo from "@/components/media/background-video"
 
 interface BackgroundVideosProps {
   albums: Album[]
-  activeAlbum: number
+  activeAlbum: number // Index of the active album
 }
 
 export default function BackgroundVideos({ albums, activeAlbum }: BackgroundVideosProps) {
+  // Determine the video ID for the currently active *and* unlocked album
+  const currentAlbum = albums[activeAlbum]
+  const activeVideoId = currentAlbum && currentAlbum.isUnlocked ? currentAlbum.videoId : null
+
   return (
-    <div className="absolute inset-0 z-0">
-      {albums.map(
-        (album, index) =>
-          album.isUnlocked && (
-            <div
-              key={`video-${album.id}`}
-              className={`absolute inset-0 transition-opacity duration-500 ${
-                activeAlbum === index ? "opacity-100" : "opacity-0"
-              }`}
-              style={{ pointerEvents: "none" }}
-            >
-              <BackgroundVideo videoId={album.videoId} isActive={activeAlbum === index} />
-            </div>
-          ),
-      )}
+    // Render a single BackgroundVideo component
+    <div className="absolute inset-0 z-0 pointer-events-none">
+      <BackgroundVideo videoId={activeVideoId} />
     </div>
   )
 }
