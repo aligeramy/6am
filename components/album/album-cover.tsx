@@ -4,6 +4,7 @@ import { motion } from "framer-motion"
 import { Lock, Calendar } from "lucide-react"
 import type { Album } from "@/lib/data"
 import StreamingLinks from "./streaming-links"
+import { formatReleaseDate } from "@/lib/data"
 
 interface AlbumCoverProps {
   album: Album
@@ -34,14 +35,14 @@ export default function AlbumCover({ album, isActive, isAnimating }: AlbumCoverP
             transition={{ duration: 0.5 }}
           >
             <img
-              src={album.coverImage || "/placeholder.svg"}
+              src={album.isUnlocked ? album.coverImage : "/placeholder.jpg"}
               alt={`Album cover for ${album.title}`}
               className="w-full h-full object-cover"
               crossOrigin="anonymous"
             />
           </motion.div>
 
-          {/* Lock Overlay */}
+          {/* Lock Overlay (No Date) */}
           {!album.isUnlocked && (
             <motion.div
               className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900/70 backdrop-blur-sm"
@@ -57,10 +58,6 @@ export default function AlbumCover({ album, isActive, isAnimating }: AlbumCoverP
               >
                 <Lock size={48} className="text-zinc-400/80" />
               </motion.div>
-              <div className="flex items-center mt-4 bg-zinc-800/70 px-3 py-1 rounded-full">
-                <Calendar size={14} className="mr-2 text-zinc-400" />
-                <p className="text-zinc-300/90 text-xs font-light">{album.releaseDate}</p>
-              </div>
             </motion.div>
           )}
 
@@ -92,10 +89,10 @@ export default function AlbumCover({ album, isActive, isAnimating }: AlbumCoverP
         }}
       >
         <h2 className="text-sm font-light tracking-wide uppercase">{album.title}</h2>
-        {album.isUnlocked ? (
+        <p className="text-zinc-500 mt-1 text-xs">{formatReleaseDate(album.releaseTimestamp)}</p>
+        
+        {album.isUnlocked && (
           <StreamingLinks links={album.links} />
-        ) : (
-          <p className="text-zinc-500 mt-1 text-xs">{album.releaseDate}</p>
         )}
       </motion.div>
     </div>

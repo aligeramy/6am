@@ -7,21 +7,15 @@ interface BackgroundVideoProps {
   isActive: boolean
 }
 
-declare global {
-  interface Window {
-    YT: any
-    onYouTubeIframeAPIReady: () => void
-  }
-}
-
 export default function BackgroundVideo({ videoId, isActive }: BackgroundVideoProps) {
-  const playerRef = useRef<YT.Player | null>(null)
+  const playerRef = useRef<any | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const playerReadyRef = useRef(false)
 
   useEffect(() => {
+    console.log(`[BackgroundVideo ${videoId}] useEffect init`);
     // Load YouTube API
-    if (!window.YT) {
+    if (!(window as any).YT) {
       const tag = document.createElement("script")
       tag.src = "https://www.youtube.com/iframe_api"
       const firstScriptTag = document.getElementsByTagName("script")[0]
@@ -30,12 +24,17 @@ export default function BackgroundVideo({ videoId, isActive }: BackgroundVideoPr
 
     // Initialize player when API is ready
     const onYouTubeIframeAPIReady = () => {
-      if (!containerRef.current) return
+      console.log(`[BackgroundVideo ${videoId}] onYouTubeIframeAPIReady called`);
+      if (!containerRef.current) {
+        console.log(`[BackgroundVideo ${videoId}] containerRef not ready`);
+        return;
+      }
 
-      playerRef.current = new window.YT.Player(containerRef.current, {
+      console.log(`[BackgroundVideo ${videoId}] Creating YT.Player...`);
+      playerRef.current = new (window as any).YT.Player(containerRef.current, {
         videoId: videoId,
         playerVars: {
-          autoplay: 0,
+          autoplay: 1,
           controls: 0,
           disablekb: 1,
           fs: 0,
@@ -48,16 +47,15 @@ export default function BackgroundVideo({ videoId, isActive }: BackgroundVideoPr
           mute: 1,
         },
         events: {
-          onReady: (event) => {
+          onReady: (event: any) => {
+            console.log(`[BackgroundVideo ${videoId}] Player Ready`, event);
             playerReadyRef.current = true
             event.target.setPlaybackQuality("hd720")
-            if (isActive) {
-              event.target.playVideo()
-            }
           },
-          onStateChange: (event) => {
+          onStateChange: (event: any) => {
+            console.log(`[BackgroundVideo ${videoId}] Player State Change:`, event.data);
             // Loop the video when it ends
-            if (event.data === window.YT.PlayerState.ENDED) {
+            if (event.data === (window as any).YT.PlayerState.ENDED) {
               event.target.playVideo()
             }
           },
@@ -66,10 +64,10 @@ export default function BackgroundVideo({ videoId, isActive }: BackgroundVideoPr
     }
 
     // Handle API ready event
-    if (window.YT && window.YT.Player) {
+    if ((window as any).YT && (window as any).YT.Player) {
       onYouTubeIframeAPIReady()
     } else {
-      window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady
+      (window as any).onYouTubeIframeAPIReady = onYouTubeIframeAPIReady
     }
 
     return () => {
@@ -80,20 +78,8 @@ export default function BackgroundVideo({ videoId, isActive }: BackgroundVideoPr
     }
   }, [videoId])
 
-  // Control playback based on active state
-  useEffect(() => {
-    if (!playerRef.current || !playerReadyRef.current) return
-
-    if (isActive) {
-      playerRef.current.playVideo()
-    } else {
-      playerRef.current.pauseVideo()
-    }
-  }, [isActive])
-
   return (
     <div className="absolute inset-0 overflow-hidden opacity-30 pointer-events-none">
-      <div className="absolute inset-0 bg-gradient-to-b from-zinc-900/30 via-zinc-900/60 to-zinc-900/30 z-10"></div>
       <div className="absolute inset-0 w-full h-full">
         <div
           ref={containerRef}
@@ -107,6 +93,7 @@ export default function BackgroundVideo({ videoId, isActive }: BackgroundVideoPr
           }}
         ></div>
       </div>
+      <div className="absolute inset-0 bg-gradient-to-b from-zinc-900/30 via-zinc-900/60 to-zinc-900/30"></div>
     </div>
   )
 }

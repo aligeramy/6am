@@ -3,6 +3,8 @@
 import { motion } from "framer-motion"
 import { Lock, Calendar } from "lucide-react"
 import type { Album } from "@/lib/data"
+import Image from "next/image"
+import { formatReleaseDate } from "@/lib/data"
 
 interface AlbumCoverProps {
   album: Album
@@ -46,10 +48,6 @@ export default function AlbumCover({ album, isActive, isAnimating }: AlbumCoverP
           >
             <Lock size={48} className="text-zinc-400/80" />
           </motion.div>
-          <div className="flex items-center mt-4 bg-zinc-800/70 px-3 py-1 rounded-full">
-            <Calendar size={14} className="mr-2 text-zinc-400" />
-            <p className="text-zinc-300/90 text-xs font-light">{album.releaseDate}</p>
-          </div>
         </motion.div>
       )}
 
@@ -107,7 +105,9 @@ export default function AlbumCover({ album, isActive, isAnimating }: AlbumCoverP
         }}
       >
         <h2 className="text-sm font-light tracking-wide uppercase">{album.title}</h2>
-        {album.isUnlocked ? (
+        <p className="text-zinc-500 mt-1 text-xs">{formatReleaseDate(album.releaseTimestamp)}</p>
+        
+        {album.isUnlocked && (
           <div className="mt-6 flex justify-center space-x-6 sm:space-x-8">
             <a
               href={album.links.youtube}
@@ -152,8 +152,6 @@ export default function AlbumCover({ album, isActive, isAnimating }: AlbumCoverP
               </div>
             </a>
           </div>
-        ) : (
-          <p className="text-zinc-500 mt-1 text-xs">{album.releaseDate}</p>
         )}
       </motion.div>
     </div>
