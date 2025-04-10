@@ -20,6 +20,7 @@ export function formatReleaseDate(date: Date): string {
   const nowYear = now.getUTCFullYear()
   const nowMonth = now.getUTCMonth()
   const nowDay = now.getUTCDate()
+  const currentDayOfWeek = now.getUTCDay() // 0 = Sunday, 6 = Saturday
 
   // Get release date components in UTC
   const releaseYear = date.getUTCFullYear()
@@ -34,23 +35,43 @@ export function formatReleaseDate(date: Date): string {
   const diffTime = utcReleaseTimestamp - utcNowTimestamp
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
-  // Format based on release status (using UTC date for formatting released date)
+  // Format based on release status
   if (diffDays <= 0) {
-    // Released: Show "Released Month Day, Year" based on UTC date
+    // Released
     const options: Intl.DateTimeFormatOptions = {
       month: "long",
       day: "numeric",
       year: "numeric",
-      timeZone: "UTC", // Specify UTC for formatting
+      timeZone: "UTC",
     }
-    // Use the original Date object, but format it as UTC
     return `Released ${date.toLocaleDateString("en-US", options)}`
   } else if (diffDays === 1) {
-    // Upcoming: Tomorrow
+    // Tomorrow
     return "Available tomorrow"
   } else {
-    // Upcoming: More than one day away
-    return `Available in ${diffDays} days`
+    // More than 1 day away
+    if (diffDays <= 7) {
+      // Within the next 7 days
+      const daysUntilWeekend = 6 - currentDayOfWeek // Days left in the current week (until Saturday)
+      if (diffDays <= daysUntilWeekend) {
+        // Releasing *this* week
+        const releaseDayName = date.toLocaleDateString("en-US", {
+          weekday: "long",
+          timeZone: "UTC",
+        })
+        return `Dropping this ${releaseDayName}`
+      } else {
+        // Releasing *next* week
+        return "Coming next week"
+      }
+    } else if (diffDays <= 14) {
+      // Between 8 and 14 days away
+      return "Coming in 2 weeks"
+    } else {
+      // More than 14 days away
+      const weeks = Math.ceil(diffDays / 7)
+      return `Coming in ${weeks} weeks`
+    }
   }
 }
 
@@ -60,33 +81,33 @@ export const albums: Album[] = [
     id: 1,
     title: "Blessings",
     coverImage: "/albums/blessings.jpg",
-    releaseTimestamp: new Date('2024-03-01'),
+    releaseTimestamp: new Date('2024-04-05'),
     isUnlocked: true,
     links: {
       youtube: "https://www.youtube.com/watch?v=eVOLxV4rdz4",
       spotify: "https://open.spotify.com/track/3W14qXAuDe2pxtVTecvSZ5?si=d16518f5cbab462d&nd=1&dlsi=f609d359e423487b",
       apple: "https://music.apple.com/ca/album/blessings-single/1800816463",
     },
-    backgroundVideoPath: "/videos/blessings.mp4", // Updated path
+    backgroundVideoPath: "/videos/blessings.mp4",
   },
   {
     id: 2,
     title: "TonyInLa",
     coverImage: "/placeholder.jpg",
-    releaseTimestamp: new Date('2025-04-17'),
+    releaseTimestamp: new Date('2025-04-12'),
     isUnlocked: false,
     links: {
       youtube: "https://www.youtube.com/watch?v=example2",
       spotify: "https://open.spotify.com/track/example2",
       apple: "https://music.apple.com/album/example2",
     },
-    backgroundVideoPath: null, // No video for others yet
+    backgroundVideoPath: null, 
   },
   {
     id: 3,
     title: "For the better",
     coverImage: "/placeholder.jpg",
-    releaseTimestamp: new Date('2025-05-01'),
+    releaseTimestamp: new Date('2025-04-26'),
     isUnlocked: false,
     links: {
       youtube: "https://www.youtube.com/watch?v=example3",
@@ -99,7 +120,7 @@ export const albums: Album[] = [
     id: 4,
     title: "TBA",
     coverImage: "/placeholder.jpg",
-    releaseTimestamp: new Date('2025-05-15'),
+    releaseTimestamp: new Date('2025-05-14'),
     isUnlocked: false,
     links: {
       youtube: "https://www.youtube.com/watch?v=example4",

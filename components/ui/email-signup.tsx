@@ -126,7 +126,7 @@ export default function EmailSignup() {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="group text-zinc-400 hover:text-zinc-200 text-sm font-light tracking-wide transition-colors uppercase relative"
+        className="group text-zinc-400 hover:text-zinc-200 text-xs font-medium tracking-wide transition-colors uppercase relative"
       >
         Sign up for updates
         <span className="absolute -bottom-1 left-0 w-full h-px bg-zinc-400 group-hover:bg-zinc-200 transform origin-left transition-all duration-300 ease-out group-hover:scale-x-100 scale-x-100"></span>

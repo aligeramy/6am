@@ -42,7 +42,7 @@ export default function AlbumCover({ album, isActive, isAnimating }: AlbumCoverP
             />
           </motion.div>
 
-          {/* Lock Overlay (No Date) */}
+          {/* Lock Overlay */}
           {!album.isUnlocked && (
             <motion.div
               className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900/70 backdrop-blur-sm"
@@ -58,6 +58,11 @@ export default function AlbumCover({ album, isActive, isAnimating }: AlbumCoverP
               >
                 <Lock size={48} className="text-zinc-400/80" />
               </motion.div>
+              {/* Add date display back to the lock overlay */}
+              <div className="flex items-center mt-4 bg-zinc-800/70 px-3 py-1 rounded-full">
+                <Calendar size={14} className="mr-2 text-zinc-400" />
+                <p className="text-zinc-300/90 text-xs font-light">{formatReleaseDate(album.releaseTimestamp)}</p>
+              </div>
             </motion.div>
           )}
 
