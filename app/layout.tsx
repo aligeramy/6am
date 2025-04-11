@@ -3,9 +3,8 @@ import "./globals.css"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Album Experience",
-  description: "Interactive album experience with unlockable content",
-    generator: 'v0.dev'
+  title: "6AM - Album Experience",
+  description: "Interactive album experience with unlockable content biweekly"
 }
 
 export default function RootLayout({

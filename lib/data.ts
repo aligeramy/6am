@@ -94,7 +94,7 @@ export const albums: Album[] = [
     id: 2,
     title: "TonyInLa",
     coverImage: "/placeholder.jpg",
-    releaseTimestamp: new Date('2025-04-12'),
+    releaseTimestamp: new Date('2025-04-18'),
     isUnlocked: false,
     links: {
       youtube: "https://www.youtube.com/watch?v=example2",
@@ -107,7 +107,7 @@ export const albums: Album[] = [
     id: 3,
     title: "For the better",
     coverImage: "/placeholder.jpg",
-    releaseTimestamp: new Date('2025-04-26'),
+    releaseTimestamp: new Date('2025-05-02'),
     isUnlocked: false,
     links: {
       youtube: "https://www.youtube.com/watch?v=example3",
@@ -120,7 +120,7 @@ export const albums: Album[] = [
     id: 4,
     title: "TBA",
     coverImage: "/placeholder.jpg",
-    releaseTimestamp: new Date('2025-05-14'),
+    releaseTimestamp: new Date('2025-05-16'),
     isUnlocked: false,
     links: {
       youtube: "https://www.youtube.com/watch?v=example4",
@@ -133,7 +133,7 @@ export const albums: Album[] = [
     id: 5,
     title: "Ever Since it Went Down you're Not Sorry",
     coverImage: "/placeholder.jpg",
-    releaseTimestamp: new Date('2025-06-01'),
+    releaseTimestamp: new Date('2025-05-30'),
     isUnlocked: false,
     links: {
       youtube: "https://www.youtube.com/watch?v=example5",

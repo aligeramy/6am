@@ -6,6 +6,7 @@ import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { motion } from "framer-motion"
 import { X } from "lucide-react"
+import { createClient } from '@supabase/supabase-js'
 
 // Define props for the Modal component
 interface ModalProps {
@@ -16,6 +17,7 @@ interface ModalProps {
   handleSubmit: (e: React.FormEvent) => void
   isSubmitting: boolean
   isSubmitted: boolean
+  errorMessage: string | null
 }
 
 // Define Modal component outside EmailSignup
@@ -27,6 +29,7 @@ const Modal = ({
   handleSubmit,
   isSubmitting,
   isSubmitted,
+  errorMessage,
 }: ModalProps) => (
   <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 2147483647 }}>
     <motion.div
@@ -70,6 +73,9 @@ const Modal = ({
                 disabled={isSubmitting}
               />
             </div>
+            {errorMessage && (
+              <p className="text-red-500 text-xs text-center">{errorMessage}</p>
+            )}
             <button
               type="submit"
               disabled={isSubmitting}
@@ -89,14 +95,20 @@ const Modal = ({
   </div>
 )
 
+// Initialize Supabase client (use environment variables)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
 export default function EmailSignup() {
   const [isOpen, setIsOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
 
-  // Only mount the portal on the client side
   useEffect(() => {
     setMounted(true)
     return () => setMounted(false)
@@ -105,21 +117,40 @@ export default function EmailSignup() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setErrorMessage(null)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      const { error } = await supabase
+        .from('emails')
+        .insert({ email: email })
 
-    setIsSubmitting(false)
-    setIsSubmitted(true)
+      if (error) {
+        console.error("Supabase error:", JSON.stringify(error, null, 2))
+        if (error.code === '23505' || (error.message && error.message.includes('duplicate key value violates unique constraint'))) {
+          setErrorMessage("This email address has already been subscribed.")
+        } else {
+          setErrorMessage("An error occurred. Please try again.")
+        }
+        setIsSubmitting(false)
+        return
+      }
 
-    // Reset after showing success message
-    setTimeout(() => {
-      setIsOpen(false)
+      setIsSubmitting(false)
+      setIsSubmitted(true)
+
       setTimeout(() => {
-        setIsSubmitted(false)
-        setEmail("")
-      }, 500)
-    }, 2000)
+        setIsOpen(false)
+        setTimeout(() => {
+          setIsSubmitted(false)
+          setEmail("")
+        }, 500)
+      }, 2000)
+
+    } catch (err) {
+      console.error("Submit error:", err)
+      setErrorMessage("A network error occurred. Please try again.")
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -143,6 +174,7 @@ export default function EmailSignup() {
             handleSubmit={handleSubmit}
             isSubmitting={isSubmitting}
             isSubmitted={isSubmitted}
+            errorMessage={errorMessage}
           />,
           document.body,
         )}
