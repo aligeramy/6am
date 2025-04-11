@@ -81,7 +81,7 @@ export const albums: Album[] = [
     id: 1,
     title: "Blessings",
     coverImage: "/albums/blessings.jpg",
-    releaseTimestamp: new Date('2024-04-05'),
+    releaseTimestamp: new Date('2025-04-04'),
     isUnlocked: true,
     links: {
       youtube: "https://www.youtube.com/watch?v=eVOLxV4rdz4",
