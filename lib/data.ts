@@ -93,7 +93,7 @@ export const albums: Album[] = [
   {
     id: 2,
     title: "TonyInLa",
-    coverImage: "/placeholder.jpg",
+    coverImage: "/albums/tonyinla.png",
     releaseTimestamp: new Date('2025-04-18'),
     isUnlocked: true,
     links: {
@@ -101,7 +101,7 @@ export const albums: Album[] = [
       spotify: "https://open.spotify.com/track/2iVFsTZiJTnidE8If0mmxq?si=8305d88c1eca4730",
       apple: "https://music.apple.com/us/artist/6am/1470281368?l=ru",
     },
-    backgroundVideoPath: null, 
+    backgroundVideoPath: "/videos/tonyinla.mp4", 
   },
   {
     id: 3,
