@@ -4,7 +4,20 @@ import type { Metadata } from "next"
 
 export const metadata: Metadata = {
   title: "6AM - Album Experience",
-  description: "Interactive album experience with unlockable content biweekly"
+  description: "Interactive album experience with unlockable content biweekly",
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/favicon.svg' },
+      { url: '/favicon-96x96.png', sizes: '96x96', type: 'image/png' }
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png' }
+    ],
+    other: [
+      { rel: 'manifest', url: '/site.webmanifest' }
+    ]
+  }
 }
 
 export default function RootLayout({
