@@ -16,6 +16,9 @@ export default function AlbumCarousel({ albums, activeAlbum, onActiveAlbumChange
   const [isAnimating, setIsAnimating] = useState(false)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  
+  // Increased transition time to match video fade duration
+  const TRANSITION_DURATION = 1000;
 
   const scrollToAlbum = (index: number) => {
     if (containerRef.current && !isTransitioning) {
@@ -30,7 +33,7 @@ export default function AlbumCarousel({ albums, activeAlbum, onActiveAlbumChange
 
       setTimeout(() => {
         setIsTransitioning(false)
-      }, 500)
+      }, TRANSITION_DURATION)
     }
   }
 
