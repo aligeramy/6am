@@ -97,7 +97,7 @@ export const albums: Album[] = [
     releaseTimestamp: new Date('2025-04-18'),
     isUnlocked: true,
     links: {
-      youtube: "https://www.youtube.com/watch?v=9MQXRJIQ17U",
+      youtube: "https://www.youtube.com/watch?v=6O1yhHGSEkk",
       spotify: "https://open.spotify.com/track/2iVFsTZiJTnidE8If0mmxq?si=8305d88c1eca4730",
       apple: "https://music.apple.com/us/artist/6am/1470281368?l=ru",
     },
