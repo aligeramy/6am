@@ -106,15 +106,15 @@ export const albums: Album[] = [
   {
     id: 3,
     title: "For the better",
-    coverImage: "/placeholder.jpg",
+    coverImage: "/ftb.jpg",
     releaseTimestamp: new Date('2025-05-02'),
     isUnlocked: false,
     links: {
-      youtube: "https://www.youtube.com/watch?v=example3",
-      spotify: "https://open.spotify.com/track/example3",
-      apple: "https://music.apple.com/album/example3",
+      youtube: "https://youtu.be/VtdDGM_mmP0?si=pUqiShc0dXMOlANC",
+      spotify: "https://open.spotify.com/album/2c4tNqpIhYnJtlbgW16qFJ?si=Ii8R-rBYTTil-kUalmIQRA",
+      apple: "https://music.apple.com/ca/album/for-the-better-single/1808771942",
     },
-    backgroundVideoPath: null, 
+    backgroundVideoPath: "/videos/ftb.mp4", 
   },
   {
     id: 4,
@@ -131,7 +131,7 @@ export const albums: Album[] = [
   },
   {
     id: 5,
-    title: "Ever Since it Went Down you're Not Sorry",
+    title: "TBA",
     coverImage: "/placeholder.jpg",
     releaseTimestamp: new Date('2025-05-30'),
     isUnlocked: false,
