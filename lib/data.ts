@@ -133,18 +133,5 @@ export const albums: Album[] = [
       apple: "https://music.apple.com/album/example4",
     },
     backgroundVideoPath: null, 
-  },
-  {
-    id: 5,
-    title: "TBA",
-    coverImage: "/placeholder.jpg",
-    releaseTimestamp: "TBA",
-    isUnlocked: false,
-    links: {
-      youtube: "https://www.youtube.com/watch?v=example5",
-      spotify: "https://open.spotify.com/track/example5",
-      apple: "https://music.apple.com/album/example5",
-    },
-    backgroundVideoPath: null, 
-  },
+  }
 ]
