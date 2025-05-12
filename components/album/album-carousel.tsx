@@ -29,8 +29,6 @@ export default function AlbumCarousel({ albums, activeAlbum, onActiveAlbumChange
         behavior: "smooth",
       })
 
-      onActiveAlbumChange(index)
-
       setTimeout(() => {
         setIsTransitioning(false)
       }, TRANSITION_DURATION)
@@ -39,15 +37,15 @@ export default function AlbumCarousel({ albums, activeAlbum, onActiveAlbumChange
 
   const handleNext = () => {
     if (activeAlbum < albums.length - 1 && !isTransitioning) {
-      onActiveAlbumChange(activeAlbum + 1)
       scrollToAlbum(activeAlbum + 1)
+      onActiveAlbumChange(activeAlbum + 1)
     }
   }
 
   const handlePrev = () => {
     if (activeAlbum > 0 && !isTransitioning) {
-      onActiveAlbumChange(activeAlbum - 1)
       scrollToAlbum(activeAlbum - 1)
+      onActiveAlbumChange(activeAlbum - 1)
     }
   }
 

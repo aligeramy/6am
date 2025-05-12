@@ -2,7 +2,7 @@ export interface Album {
   id: number
   title: string
   coverImage: string
-  releaseTimestamp: Date
+  releaseTimestamp: Date | "TBA"
   isUnlocked: boolean
   links: {
     youtube: string
@@ -13,7 +13,12 @@ export interface Album {
 }
 
 // Helper function to format release date in a more natural way using UTC
-export function formatReleaseDate(date: Date): string {
+export function formatReleaseDate(date: Date | "TBA"): string {
+  // Handle TBA case
+  if (date === "TBA") {
+    return "Coming soon"
+  }
+
   const now = new Date()
 
   // Get current date components in UTC
@@ -120,7 +125,7 @@ export const albums: Album[] = [
     id: 4,
     title: "TBA",
     coverImage: "/placeholder.jpg",
-    releaseTimestamp: new Date('2025-05-16'),
+    releaseTimestamp: "TBA",
     isUnlocked: false,
     links: {
       youtube: "https://www.youtube.com/watch?v=example4",
@@ -133,7 +138,7 @@ export const albums: Album[] = [
     id: 5,
     title: "TBA",
     coverImage: "/placeholder.jpg",
-    releaseTimestamp: new Date('2025-05-30'),
+    releaseTimestamp: "TBA",
     isUnlocked: false,
     links: {
       youtube: "https://www.youtube.com/watch?v=example5",
