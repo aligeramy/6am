@@ -108,7 +108,7 @@ export const albums: Album[] = [
     title: "For the better",
     coverImage: "/ftb.jpg",
     releaseTimestamp: new Date('2025-05-02'),
-    isUnlocked: false,
+    isUnlocked: true,
     links: {
       youtube: "https://youtu.be/VtdDGM_mmP0?si=pUqiShc0dXMOlANC",
       spotify: "https://open.spotify.com/album/2c4tNqpIhYnJtlbgW16qFJ?si=Ii8R-rBYTTil-kUalmIQRA",
