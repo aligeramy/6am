@@ -106,7 +106,7 @@ export const albums: Album[] = [
   {
     id: 3,
     title: "For the better",
-    coverImage: "/ftb.jpg",
+    coverImage: "/albums/ftb.jpg",
     releaseTimestamp: new Date('2025-05-02'),
     isUnlocked: true,
     links: {
