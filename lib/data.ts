@@ -123,14 +123,14 @@ export const albums: Album[] = [
   },
   {
     id: 4,
-    title: "TBA",
-    coverImage: "/placeholder.jpg",
+    title: "Not Sorry",
+    coverImage: "/albums/not-sorry.jpg",
     releaseTimestamp: "TBA",
-    isUnlocked: false,
+    isUnlocked: true,
     links: {
-      youtube: "https://www.youtube.com/watch?v=example4",
-      spotify: "https://open.spotify.com/track/example4",
-      apple: "https://music.apple.com/album/example4",
+      youtube: "https://youtu.be/UF553Zh2S5Y",
+      spotify: "https://open.spotify.com/track/2VzYxRTL4JYzI7ov3me8Hg?si=OlicDogsQ7GEfqymGmJ_Lg",
+      apple: "https://music.apple.com/ca/album/not-sorry-feat-roko-santana/1818885544?i=1818885545",
     },
     backgroundVideoPath: null, 
   }
