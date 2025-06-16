@@ -125,7 +125,7 @@ export const albums: Album[] = [
     id: 4,
     title: "Not Sorry",
     coverImage: "/albums/not-sorry.jpg",
-    releaseTimestamp: "TBA",
+    releaseTimestamp: new Date('2025-06-13'),
     isUnlocked: true,
     links: {
       youtube: "https://youtu.be/UF553Zh2S5Y",
