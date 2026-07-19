@@ -3,6 +3,8 @@ import { useOSStore } from "../lib/store";
 import { SectionHeader, Modal, FormInput, TextArea, Select, PrimaryButton, SecondaryButton } from "../components/ui";
 import { ChevronLeft, ChevronRight, Trash2, Check } from "lucide-react";
 import { buildReleaseChecklist } from "../lib/seed";
+import { normalizeChecklistItem } from "../lib/store";
+import { Minus, Plus } from "lucide-react";
 
 type EventKind = "release" | "content" | "studio";
 
@@ -44,6 +46,7 @@ export default function CalendarPage() {
   const deleteRelease = useOSStore((s) => s.deleteRelease);
   const deleteContent = useOSStore((s) => s.deleteContent);
   const toggleChecklistItem = useOSStore((s) => s.toggleChecklistItem);
+  const adjustChecklistCount = useOSStore((s) => s.adjustChecklistCount);
 
   const [cursor, setCursor] = useState(() => new Date());
   const [modalOpen, setModalOpen] = useState(false);
@@ -255,22 +258,56 @@ export default function CalendarPage() {
             <div>
               <div className="mb-1.5 text-xs uppercase tracking-wide text-[#a3a3a3]">Release To-Do</div>
               <ul className="space-y-1">
-                {editingRelease.preReleaseChecklist.map((item) => (
-                  <li
-                    key={item.id}
-                    onClick={() => toggleChecklistItem(editingRelease.id, "preReleaseChecklist", item.id)}
-                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-[#1c1c1c]"
-                  >
-                    <span
-                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                        item.done ? "border-violet-500 bg-violet-500/90 text-white" : "border-[#2a2a2a]"
-                      }`}
+                {editingRelease.preReleaseChecklist.map(normalizeChecklistItem).map((item) =>
+                  item.target ? (
+                    <li key={item.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm">
+                      <span
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                          item.done ? "border-violet-500 bg-violet-500/90 text-white" : "border-[#2a2a2a]"
+                        }`}
+                      >
+                        {item.done && <Check size={11} />}
+                      </span>
+                      <span className={`flex-1 ${item.done ? "text-[#a3a3a3] line-through" : "text-[#f5f5f5]"}`}>
+                        {item.label}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => adjustChecklistCount(editingRelease.id, "preReleaseChecklist", item.id, -1)}
+                          className="rounded-md border border-[#2a2a2a] bg-[#151515] p-1 text-[#a3a3a3] hover:bg-[#1c1c1c] hover:text-[#f5f5f5]"
+                        >
+                          <Minus size={12} />
+                        </button>
+                        <span className={`min-w-[52px] text-center text-xs font-semibold ${item.done ? "text-emerald-400" : "text-violet-300"}`}>
+                          {item.count ?? 0} / {item.target}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => adjustChecklistCount(editingRelease.id, "preReleaseChecklist", item.id, 1)}
+                          className="rounded-md border border-[#2a2a2a] bg-[#151515] p-1 text-[#a3a3a3] hover:bg-[#1c1c1c] hover:text-[#f5f5f5]"
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </span>
+                    </li>
+                  ) : (
+                    <li
+                      key={item.id}
+                      onClick={() => toggleChecklistItem(editingRelease.id, "preReleaseChecklist", item.id)}
+                      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-[#1c1c1c]"
                     >
-                      {item.done && <Check size={11} />}
-                    </span>
-                    <span className={item.done ? "text-[#a3a3a3] line-through" : "text-[#f5f5f5]"}>{item.label}</span>
-                  </li>
-                ))}
+                      <span
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                          item.done ? "border-violet-500 bg-violet-500/90 text-white" : "border-[#2a2a2a]"
+                        }`}
+                      >
+                        {item.done && <Check size={11} />}
+                      </span>
+                      <span className={item.done ? "text-[#a3a3a3] line-through" : "text-[#f5f5f5]"}>{item.label}</span>
+                    </li>
+                  )
+                )}
               </ul>
             </div>
           )}

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useOSStore } from "../lib/store";
+import { useOSStore, normalizeChecklistItem } from "../lib/store";
 import {
   DashboardCard,
   StatCard,
@@ -49,7 +49,7 @@ export default function TodayPage() {
   const nextReleaseTasks = useMemo(() => {
     if (!activeRelease) return [];
     const all = [...activeRelease.preReleaseChecklist, ...activeRelease.releaseDayChecklist, ...activeRelease.postReleaseChecklist];
-    return all.filter((i) => !i.done).slice(0, 3);
+    return all.map(normalizeChecklistItem).filter((i) => !i.done).slice(0, 3);
   }, [activeRelease]);
 
   const recentIdeas = useMemo(
@@ -124,6 +124,11 @@ export default function TodayPage() {
                       <li key={t.id} className="flex items-center gap-2">
                         <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
                         {t.label}
+                        {t.target ? (
+                          <span className="text-xs font-semibold text-violet-300">
+                            {t.count ?? 0} / {t.target}
+                          </span>
+                        ) : null}
                       </li>
                     ))}
                   </ul>

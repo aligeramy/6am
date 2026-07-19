@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { LayoutDashboard, CalendarDays, Music2, DollarSign, Menu, X } from "lucide-react";
 import { useState } from "react";
 
@@ -41,10 +41,10 @@ export function Sidebar() {
   return (
     <>
       <div className="flex items-center justify-between border-b border-[#2a2a2a] bg-[#080808] px-4 py-3 lg:hidden">
-        <div>
+        <Link to="/" className="rounded-lg transition-opacity hover:opacity-80">
           <div className="text-sm font-semibold tracking-tight text-[#f5f5f5]">6am OS</div>
           <div className="text-[11px] text-[#a3a3a3]">Artist Command Center</div>
-        </div>
+        </Link>
         <button onClick={() => setOpen(true)} className="rounded-lg p-2 text-[#a3a3a3] hover:bg-[#1c1c1c] hover:text-[#f5f5f5]">
           <Menu size={20} />
         </button>
@@ -69,10 +69,10 @@ export function Sidebar() {
       )}
 
       <aside className="hidden w-64 shrink-0 border-r border-[#2a2a2a] bg-[#080808] p-4 lg:flex lg:flex-col">
-        <div className="mb-8 px-2">
+        <Link to="/" className="mb-8 block rounded-lg px-2 transition-opacity hover:opacity-80">
           <div className="text-base font-semibold tracking-tight text-[#f5f5f5]">6am OS</div>
           <div className="text-xs text-[#a3a3a3]">Artist Command Center</div>
-        </div>
+        </Link>
         <NavLinks />
       </aside>
     </>

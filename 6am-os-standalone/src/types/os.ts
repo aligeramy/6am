@@ -68,6 +68,9 @@ export interface ChecklistItem {
   id: string;
   label: string;
   done: boolean;
+  // Optional counter items (e.g. "28 reel style hook videos" → count/target)
+  count?: number;
+  target?: number;
 }
 
 export interface Release {

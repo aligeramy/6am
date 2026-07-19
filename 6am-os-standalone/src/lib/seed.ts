@@ -3,13 +3,15 @@ import { ChecklistItem, OSState } from "../types/os";
 const now = new Date().toISOString();
 
 export const RELEASE_CHECKLIST_LABELS = [
-  "28 reel style hook videos",
+  "Reel style hook videos",
   "Visual/music video",
   "Photoshoot",
   "Playlisting",
   "Playlist pitch",
   "YouTube video upload",
 ];
+
+export const REELS_TARGET = 28;
 
 export function checklist(labels: string[], doneCount = 0): ChecklistItem[] {
   return labels.map((label, i) => ({
@@ -20,7 +22,9 @@ export function checklist(labels: string[], doneCount = 0): ChecklistItem[] {
 }
 
 export function buildReleaseChecklist(doneCount = 0): ChecklistItem[] {
-  return checklist(RELEASE_CHECKLIST_LABELS, doneCount);
+  return checklist(RELEASE_CHECKLIST_LABELS, doneCount).map((item, i) =>
+    i === 0 ? { ...item, count: doneCount > 0 ? REELS_TARGET : 0, target: REELS_TARGET } : item
+  );
 }
 
 export function emptyChecklists() {

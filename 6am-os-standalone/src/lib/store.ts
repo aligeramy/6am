@@ -22,6 +22,28 @@ function ts() {
   return new Date().toISOString();
 }
 
+// Older saved releases have the reels item as a plain checkbox — upgrade it to a counter.
+export function normalizeChecklistItem(item: import("../types/os").ChecklistItem) {
+  if (item.target === undefined && /reel style hook videos/i.test(item.label)) {
+    return { ...item, label: "Reel style hook videos", target: 28, count: item.done ? 28 : 0 };
+  }
+  return item;
+}
+
+function checklistProgress(release: Release): number {
+  const all = [
+    ...release.preReleaseChecklist,
+    ...release.releaseDayChecklist,
+    ...release.postReleaseChecklist,
+  ].map(normalizeChecklistItem);
+  if (all.length === 0) return 0;
+  const total = all.reduce((sum, i) => {
+    if (i.target && i.target > 0) return sum + Math.min(1, (i.count ?? 0) / i.target);
+    return sum + (i.done ? 1 : 0);
+  }, 0);
+  return Math.round((total / all.length) * 100);
+}
+
 interface OSActions {
   addSong: (song: Omit<Song, "id" | "createdAt" | "updatedAt">) => void;
   updateSong: (id: string, patch: Partial<Song>) => void;
@@ -34,6 +56,12 @@ interface OSActions {
     releaseId: string,
     list: "preReleaseChecklist" | "releaseDayChecklist" | "postReleaseChecklist",
     itemId: string
+  ) => void;
+  adjustChecklistCount: (
+    releaseId: string,
+    list: "preReleaseChecklist" | "releaseDayChecklist" | "postReleaseChecklist",
+    itemId: string,
+    delta: number
   ) => void;
 
   addContent: (item: Omit<ContentItem, "id" | "createdAt" | "updatedAt">) => void;
@@ -112,13 +140,23 @@ export const useOSStore = create<OSStore>()(
             const updatedList = r[list].map((item) =>
               item.id === itemId ? { ...item, done: !item.done } : item
             );
-            const all = [
-              ...(list === "preReleaseChecklist" ? updatedList : r.preReleaseChecklist),
-              ...(list === "releaseDayChecklist" ? updatedList : r.releaseDayChecklist),
-              ...(list === "postReleaseChecklist" ? updatedList : r.postReleaseChecklist),
-            ];
-            const progress = all.length > 0 ? Math.round((all.filter((i) => i.done).length / all.length) * 100) : 0;
-            return { ...r, [list]: updatedList, progress, updatedAt: ts() };
+            const next = { ...r, [list]: updatedList, updatedAt: ts() };
+            return { ...next, progress: checklistProgress(next) };
+          }),
+        })),
+      adjustChecklistCount: (releaseId, list, itemId, delta) =>
+        set((state) => ({
+          releases: state.releases.map((r) => {
+            if (r.id !== releaseId) return r;
+            const updatedList = r[list].map((raw) => {
+              if (raw.id !== itemId) return raw;
+              const item = normalizeChecklistItem(raw);
+              const target = item.target ?? 0;
+              const count = Math.max(0, Math.min(target, (item.count ?? 0) + delta));
+              return { ...item, count, done: target > 0 && count >= target };
+            });
+            const next = { ...r, [list]: updatedList, updatedAt: ts() };
+            return { ...next, progress: checklistProgress(next) };
           }),
         })),
 

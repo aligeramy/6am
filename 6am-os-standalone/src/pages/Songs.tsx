@@ -14,7 +14,23 @@ import {
   SearchBar,
 } from "../components/ui";
 import { Priority, SONG_STAGES, Song, SongStage } from "../types/os";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, ExternalLink } from "lucide-react";
+
+function parseLinks(fileLinks: string): string[] {
+  return fileLinks
+    .split(/[\n,]+/)
+    .map((s) => s.trim())
+    .filter((s) => /^https?:\/\//i.test(s));
+}
+
+function linkLabel(url: string): string {
+  if (/drive\.google\.com|docs\.google\.com/i.test(url)) return "Google Drive";
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "Link";
+  }
+}
 
 const emptyForm = {
   title: "",
@@ -140,6 +156,21 @@ export default function SongsPage() {
                           Next: <span className="text-[#f5f5f5]">{song.nextAction}</span>
                         </div>
                       )}
+                      {parseLinks(song.fileLinks).length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5 border-t border-[#2a2a2a] pt-2">
+                          {parseLinks(song.fileLinks).map((url, i) => (
+                            <a
+                              key={i}
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 rounded-full border border-[#2a2a2a] bg-[#151515] px-2 py-0.5 text-[11px] text-cyan-300 hover:bg-[#1c1c1c]"
+                            >
+                              <ExternalLink size={10} /> {linkLabel(url)}
+                            </a>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -169,6 +200,13 @@ export default function SongsPage() {
           <FormInput label="Genre" value={form.genre} onChange={(e) => setForm({ ...form, genre: e.target.value })} />
           <FormInput label="Next action" value={form.nextAction} onChange={(e) => setForm({ ...form, nextAction: e.target.value })} />
           <TextArea label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          <TextArea
+            label="Google Drive / file links (one per line)"
+            value={form.fileLinks}
+            onChange={(e) => setForm({ ...form, fileLinks: e.target.value })}
+            placeholder={"https://drive.google.com/...\nPaste share links to stems, masters, cover art..."}
+            className="min-h-[60px]"
+          />
           <div className="flex justify-end gap-2 pt-2">
             <SecondaryButton type="button" onClick={() => setModalOpen(false)}>
               Cancel
