@@ -1,4 +1,4 @@
-import { ChecklistItem, OSState } from "../types/os";
+import { ChecklistItem, OSState, defaultSettings } from "../types/os";
 
 const now = new Date().toISOString();
 
@@ -268,5 +268,6 @@ export function buildSeedData(): OSState {
     todayPriority: "",
     priorityItems: [],
     budgetItems: [],
+    settings: defaultSettings(),
   };
 }

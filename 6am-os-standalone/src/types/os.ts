@@ -1,36 +1,48 @@
-export type Priority = "High" | "Medium" | "Low";
+// Priorities and stages are user-customizable, so they're plain strings.
+export type Priority = string;
+export type SongStage = string;
 
-export type SongStage =
-  | "Idea"
-  | "Lyrics / Concept"
-  | "Demo"
-  | "Production"
-  | "Recording"
-  | "Editing"
-  | "Mixing"
-  | "Mastering"
-  | "Ready for Release"
-  | "Released"
-  | "Archived";
+export const DEFAULT_PRIORITIES = ["High", "Medium", "Low"];
 
 export const SONG_STAGES: SongStage[] = [
   "Idea",
-  "Lyrics / Concept",
   "Demo",
   "Production",
-  "Recording",
-  "Editing",
   "Mixing",
   "Mastering",
   "Ready for Release",
   "Released",
-  "Archived",
 ];
+
+export const DEFAULT_ITEM_TYPES = ["Song", "Music Video", "Project"];
+
+export interface CustomField {
+  id: string;
+  name: string;
+}
+
+export interface Settings {
+  stages: string[];
+  priorities: string[];
+  itemTypes: string[];
+  customFields: CustomField[];
+}
+
+export function defaultSettings(): Settings {
+  return {
+    stages: [...SONG_STAGES],
+    priorities: [...DEFAULT_PRIORITIES],
+    itemTypes: [...DEFAULT_ITEM_TYPES],
+    customFields: [],
+  };
+}
 
 export interface Song {
   id: string;
   title: string;
   stage: SongStage;
+  itemType?: string;
+  custom?: Record<string, string>;
   priority: Priority;
   vibe: string;
   theme: string;
@@ -372,4 +384,5 @@ export interface OSState {
   todayPriority: string;
   priorityItems: PriorityItem[];
   budgetItems: BudgetItem[];
+  settings: Settings;
 }

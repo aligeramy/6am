@@ -1,28 +1,27 @@
-import { HashRouter, Routes, Route } from "react-router-dom";
-import { Sidebar } from "./components/Sidebar";
+import HomeSection from "./pages/Today";
+import BoardSection from "./pages/Songs";
+import CalendarSection from "./pages/Calendar";
+import BudgetSection from "./pages/Budget";
 import { TopBar } from "./components/TopBar";
-import TodayPage from "./pages/Today";
-import CalendarPage from "./pages/Calendar";
-import SongsPage from "./pages/Songs";
-import BudgetPage from "./pages/Budget";
 
 export default function App() {
   return (
-    <HashRouter>
-      <div className="flex min-h-screen flex-col bg-[#050505] text-[#f5f5f5] lg:flex-row">
-        <Sidebar />
-        <div className="flex min-h-screen flex-1 flex-col">
-          <TopBar />
-          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-            <Routes>
-              <Route path="/" element={<TodayPage />} />
-              <Route path="/calendar" element={<CalendarPage />} />
-              <Route path="/songs" element={<SongsPage />} />
-              <Route path="/budget" element={<BudgetPage />} />
-            </Routes>
-          </main>
-        </div>
-      </div>
-    </HashRouter>
+    <div className="min-h-screen bg-[#050505] text-[#f5f5f5]">
+      <TopBar />
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+        <section id="home" className="scroll-mt-24">
+          <HomeSection />
+        </section>
+        <section id="board" className="mt-12 scroll-mt-24 border-t border-[#1c1c1c] pt-10">
+          <BoardSection />
+        </section>
+        <section id="calendar" className="mt-12 scroll-mt-24 border-t border-[#1c1c1c] pt-10">
+          <CalendarSection />
+        </section>
+        <section id="budget" className="mt-12 scroll-mt-24 border-t border-[#1c1c1c] pt-10">
+          <BudgetSection />
+        </section>
+      </main>
+    </div>
   );
 }

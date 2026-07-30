@@ -87,15 +87,16 @@ export function StatusPill({ status }: { status: string }) {
   return <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${color}`}>{status}</span>;
 }
 
-const PRIORITY_COLORS: Record<Priority, string> = {
+const PRIORITY_COLORS: Record<string, string> = {
   High: "bg-red-500/20 text-red-300",
   Medium: "bg-amber-500/20 text-amber-300",
   Low: "bg-slate-500/20 text-slate-300",
 };
 
 export function PriorityPill({ priority }: { priority: Priority }) {
+  const color = PRIORITY_COLORS[priority] ?? "bg-violet-500/20 text-violet-300";
   return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${PRIORITY_COLORS[priority]}`}>
+    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${color}`}>
       {priority}
     </span>
   );

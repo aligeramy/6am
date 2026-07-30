@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import { useOSStore, normalizeChecklistItem } from "../lib/store";
 import {
   DashboardCard,
@@ -20,8 +19,11 @@ function daysUntil(dateStr: string) {
   return Math.round((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-export default function TodayPage() {
-  const navigate = useNavigate();
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+}
+
+export default function HomeSection() {
   const releases = useOSStore((s) => s.releases);
   const songs = useOSStore((s) => s.songs);
   const content = useOSStore((s) => s.content);
@@ -136,13 +138,13 @@ export default function TodayPage() {
               )}
 
               <div className="mt-4">
-                <Link to="/calendar" className="text-sm font-medium text-cyan-300 hover:underline">
-                  View on calendar →
-                </Link>
+                <button onClick={() => scrollToSection("calendar")} className="text-sm font-medium text-cyan-300 hover:underline">
+                  View on calendar ↓
+                </button>
               </div>
             </div>
           ) : (
-            <EmptyState title="No active release" subtitle="Add a release from the Calendar page to see it here." />
+            <EmptyState title="No active release" subtitle="Add a release on the calendar below to see it here." />
           )}
         </DashboardCard>
 
@@ -217,12 +219,12 @@ export default function TodayPage() {
 
       <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         <StatCard
-          label="Active Songs"
+          label="Active Projects"
           value={songs.filter((s) => s.stage !== "Released" && s.stage !== "Archived").length}
-          onClick={() => navigate("/songs")}
+          onClick={() => scrollToSection("board")}
         />
-        <StatCard label="Upcoming Releases" value={upcomingReleasesCount} onClick={() => navigate("/calendar")} />
-        <StatCard label="Content Ready" value={contentReadyCount} onClick={() => navigate("/calendar")} />
+        <StatCard label="Upcoming Releases" value={upcomingReleasesCount} onClick={() => scrollToSection("calendar")} />
+        <StatCard label="Content Ready" value={contentReadyCount} onClick={() => scrollToSection("calendar")} />
         <StatCard
           label="Tasks Due This Week"
           value={tasksDueThisWeekList.length}

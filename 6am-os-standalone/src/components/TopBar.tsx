@@ -1,8 +1,24 @@
 import { useRef, useState } from "react";
-import { Download, Upload, Cloud, CloudOff, Copy, Check } from "lucide-react";
+import { Download, Upload, Cloud, CloudOff, Copy, Check, Settings2 } from "lucide-react";
 import { useOSStore } from "../lib/store";
 import { Modal, PrimaryButton, SecondaryButton, FormInput } from "../components/ui";
 import { useSyncStatus, getMeta, generateSyncCode, enableSync, disableSync } from "../lib/sync";
+import { CustomizeModal } from "./Customize";
+
+const SECTIONS = [
+  { id: "home", label: "Home" },
+  { id: "board", label: "Board" },
+  { id: "calendar", label: "Calendar" },
+  { id: "budget", label: "Budget" },
+];
+
+function scrollToSection(id: string) {
+  if (id === "home") {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } else {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  }
+}
 
 function SyncModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { status, lastSyncedAt } = useSyncStatus();
@@ -103,6 +119,7 @@ export function TopBar() {
   const importData = useOSStore((s) => s.importData);
   const fileRef = useRef<HTMLInputElement>(null);
   const [syncOpen, setSyncOpen] = useState(false);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
   const { status } = useSyncStatus();
 
   function handleExport() {
@@ -132,28 +149,58 @@ export function TopBar() {
     status === "synced" ? "text-emerald-400" : status === "off" ? "text-[#a3a3a3]" : status === "syncing" ? "text-amber-300" : "text-red-300";
 
   return (
-    <header className="flex items-center justify-end gap-2 border-b border-[#2a2a2a] bg-[#080808] px-4 py-2.5 sm:px-6">
-      <button
-        onClick={() => setSyncOpen(true)}
-        className={`inline-flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#151515] px-3 py-1.5 text-xs font-medium hover:bg-[#1c1c1c] ${syncColor}`}
-      >
-        {status === "off" || status === "unavailable" ? <CloudOff size={14} /> : <Cloud size={14} />}
-        Sync
-      </button>
-      <button
-        onClick={handleExport}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#151515] px-3 py-1.5 text-xs font-medium text-[#f5f5f5] hover:bg-[#1c1c1c]"
-      >
-        <Download size={14} /> Export JSON
-      </button>
-      <button
-        onClick={() => fileRef.current?.click()}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#151515] px-3 py-1.5 text-xs font-medium text-[#f5f5f5] hover:bg-[#1c1c1c]"
-      >
-        <Upload size={14} /> Import JSON
-      </button>
+    <header className="sticky top-0 z-40 border-b border-[#2a2a2a] bg-[#080808]/95 backdrop-blur">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6 lg:px-8">
+        <button onClick={() => scrollToSection("home")} className="text-left transition-opacity hover:opacity-80">
+          <div className="text-sm font-semibold tracking-tight text-[#f5f5f5]">6am OS</div>
+        </button>
+
+        <nav className="flex items-center gap-1 overflow-x-auto">
+          {SECTIONS.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => scrollToSection(s.id)}
+              className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-[#a3a3a3] transition-colors hover:bg-[#1c1c1c] hover:text-[#f5f5f5]"
+            >
+              {s.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => setCustomizeOpen(true)}
+            title="Customize stages, priorities, types, and fields"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#151515] px-2.5 py-1.5 text-xs font-medium text-[#a3a3a3] hover:bg-[#1c1c1c] hover:text-[#f5f5f5]"
+          >
+            <Settings2 size={14} />
+          </button>
+          <button
+            onClick={() => setSyncOpen(true)}
+            className={`inline-flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#151515] px-2.5 py-1.5 text-xs font-medium hover:bg-[#1c1c1c] ${syncColor}`}
+          >
+            {status === "off" || status === "unavailable" ? <CloudOff size={14} /> : <Cloud size={14} />}
+            <span className="hidden sm:inline">Sync</span>
+          </button>
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#151515] px-2.5 py-1.5 text-xs font-medium text-[#f5f5f5] hover:bg-[#1c1c1c]"
+          >
+            <Download size={14} />
+            <span className="hidden sm:inline">Export</span>
+          </button>
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#2a2a2a] bg-[#151515] px-2.5 py-1.5 text-xs font-medium text-[#f5f5f5] hover:bg-[#1c1c1c]"
+          >
+            <Upload size={14} />
+            <span className="hidden sm:inline">Import</span>
+          </button>
+        </div>
+      </div>
       <input ref={fileRef} type="file" accept="application/json" onChange={handleImportFile} className="hidden" />
       <SyncModal open={syncOpen} onClose={() => setSyncOpen(false)} />
+      <CustomizeModal open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
     </header>
   );
 }

@@ -7,6 +7,7 @@ import {
   ContentItem,
   OSState,
   Release,
+  Settings,
   Song,
   Task,
   VaultItem,
@@ -99,6 +100,8 @@ interface OSActions {
   addBudgetItem: (item: Omit<BudgetItem, "id" | "createdAt">) => void;
   updateBudgetItem: (id: string, patch: Partial<BudgetItem>) => void;
   deleteBudgetItem: (id: string) => void;
+
+  updateSettings: (patch: Partial<Settings>) => void;
 
   exportData: () => string;
   importData: (json: string) => boolean;
@@ -243,6 +246,9 @@ export const useOSStore = create<OSStore>()(
       deleteBudgetItem: (id) =>
         set((state) => ({ budgetItems: state.budgetItems.filter((b) => b.id !== id) })),
 
+      updateSettings: (patch) =>
+        set((state) => ({ settings: { ...state.settings, ...patch } })),
+
       exportData: () => {
         const state = get();
         const data: OSState = {
@@ -258,6 +264,7 @@ export const useOSStore = create<OSStore>()(
           todayPriority: state.todayPriority,
           priorityItems: state.priorityItems,
           budgetItems: state.budgetItems,
+          settings: state.settings,
         };
         return JSON.stringify(data, null, 2);
       },
@@ -278,6 +285,7 @@ export const useOSStore = create<OSStore>()(
             todayPriority: data.todayPriority ?? state.todayPriority,
             priorityItems: data.priorityItems ?? state.priorityItems,
             budgetItems: data.budgetItems ?? state.budgetItems,
+            settings: data.settings ?? state.settings,
           }));
           return true;
         } catch {
