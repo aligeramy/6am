@@ -23,6 +23,16 @@ function scrollToSection(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 }
 
+function dateKey(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+const WEEK_KIND_STYLES: Record<string, string> = {
+  release: "bg-violet-500/20 text-violet-300",
+  content: "bg-cyan-500/20 text-cyan-300",
+  studio: "bg-amber-500/20 text-amber-300",
+};
+
 export default function HomeSection() {
   const releases = useOSStore((s) => s.releases);
   const songs = useOSStore((s) => s.songs);
@@ -58,6 +68,27 @@ export default function HomeSection() {
     () => [...vault].sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1)).slice(0, 5),
     [vault]
   );
+
+  const weekDays = useMemo(() => {
+    const events = [
+      ...releases.filter((r) => r.releaseDate).map((r) => ({ id: r.id, kind: "release", title: r.title, date: r.releaseDate.slice(0, 10) })),
+      ...content
+        .filter((c) => c.postDate)
+        .map((c) => ({ id: c.id, kind: c.format === "studio clip" ? "studio" : "content", title: c.title, date: c.postDate.slice(0, 10) })),
+    ];
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      const key = dateKey(d);
+      return {
+        key,
+        isToday: i === 0,
+        weekday: d.toLocaleDateString(undefined, { weekday: "short" }),
+        dayNum: d.getDate(),
+        events: events.filter((e) => e.date === key),
+      };
+    });
+  }, [releases, content]);
 
   const upcomingReleasesCount = releases.filter((r) => r.phase !== "Released" && r.phase !== "Archived").length;
   const contentReadyCount = content.filter((c) => c.status === "Idea" || c.status === "Scripted").length;
@@ -180,6 +211,34 @@ export default function HomeSection() {
             <button onClick={handleAddPriority} className="rounded-lg bg-violet-500/90 px-3 py-2 text-sm font-medium text-white hover:bg-violet-500">
               <Plus size={16} />
             </button>
+          </div>
+        </DashboardCard>
+      </div>
+
+      <div className="mt-4">
+        <DashboardCard title="This Week">
+          <div className="grid grid-cols-7 gap-1.5">
+            {weekDays.map((day) => (
+              <button
+                key={day.key}
+                onClick={() => scrollToSection("calendar")}
+                className={`min-h-[72px] rounded-xl border p-1.5 text-left transition-colors hover:border-[#3a3a3a] ${
+                  day.isToday ? "border-violet-500/50 bg-violet-500/5" : "border-[#2a2a2a] bg-[#0c0c0c]"
+                }`}
+              >
+                <div className={`text-[10px] uppercase ${day.isToday ? "font-semibold text-violet-300" : "text-[#6b6b6b]"}`}>
+                  {day.weekday} {day.dayNum}
+                </div>
+                <div className="mt-1 space-y-0.5">
+                  {day.events.slice(0, 3).map((e) => (
+                    <div key={e.id} className={`truncate rounded px-1 py-0.5 text-[10px] font-medium ${WEEK_KIND_STYLES[e.kind]}`}>
+                      {e.title}
+                    </div>
+                  ))}
+                  {day.events.length > 3 && <div className="text-[10px] text-[#6b6b6b]">+{day.events.length - 3} more</div>}
+                </div>
+              </button>
+            ))}
           </div>
         </DashboardCard>
       </div>
