@@ -15,6 +15,8 @@ import {
 } from "../components/ui";
 import { Song } from "../types/os";
 import { Plus, Trash2, Pencil, ExternalLink } from "lucide-react";
+import { categoryChip, categoryDot, parseTags, tagsToInput, investedForTags, fmtMoney } from "../lib/categories";
+import { buildReleaseChecklist } from "../lib/seed";
 
 function parseLinks(fileLinks: string): string[] {
   return fileLinks
@@ -35,6 +37,7 @@ function linkLabel(url: string): string {
 export default function BoardSection() {
   const songs = useOSStore((s) => s.songs);
   const settings = useOSStore((s) => s.settings);
+  const budgetItems = useOSStore((s) => s.budgetItems);
   const addSong = useOSStore((s) => s.addSong);
   const updateSong = useOSStore((s) => s.updateSong);
   const deleteSong = useOSStore((s) => s.deleteSong);
@@ -57,6 +60,8 @@ export default function BoardSection() {
       notes: "",
       fileLinks: "",
       custom: {} as Record<string, string>,
+      releaseDate: "",
+      tags: "",
     }),
     [settings]
   );
@@ -67,7 +72,7 @@ export default function BoardSection() {
   const [search, setSearch] = useState("");
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
-  const [groupByType, setGroupByType] = useState(false);
+  const [groupByType, setGroupByType] = useState(true);
   const [archiveOpen, setArchiveOpen] = useState(false);
 
   function openCreate() {
@@ -95,6 +100,8 @@ export default function BoardSection() {
       notes: song.notes,
       fileLinks: song.fileLinks,
       custom: { ...(song.custom ?? {}) },
+      releaseDate: (song.releaseDate ?? "").slice(0, 10),
+      tags: tagsToInput(song.tags),
     });
     setModalOpen(true);
   }
@@ -102,10 +109,17 @@ export default function BoardSection() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.title.trim()) return;
+    const payload: Partial<Song> & Omit<Song, "id" | "createdAt" | "updatedAt"> = {
+      ...form,
+      tags: parseTags(form.tags),
+    };
+    if (form.itemType === "Main Release" && !(editing?.checklist?.length)) {
+      payload.checklist = buildReleaseChecklist();
+    }
     if (editing) {
-      updateSong(editing.id, form);
+      updateSong(editing.id, payload);
     } else {
-      addSong(form);
+      addSong(payload);
     }
     setModalOpen(false);
   }
@@ -205,12 +219,30 @@ export default function BoardSection() {
                       </div>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      <PriorityPill priority={song.priority} />
-                      {song.itemType && song.itemType !== "Song" && (
-                        <span className="rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-xs text-cyan-300">{song.itemType}</span>
+                      {!groupByType && (
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${categoryChip(song.itemType)}`}>
+                          {song.itemType ?? "Main Release"}
+                        </span>
                       )}
-                      {song.genre && <span className="rounded-full bg-[#1c1c1c] px-2.5 py-0.5 text-xs text-[#a3a3a3]">{song.genre}</span>}
+                      <PriorityPill priority={song.priority} />
+                      {song.releaseDate && (
+                        <span className="rounded-full bg-[#1c1c1c] px-2.5 py-0.5 text-xs text-[#a3a3a3]">
+                          {new Date(song.releaseDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                        </span>
+                      )}
+                      {investedForTags(budgetItems, song.tags) > 0 && (
+                        <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs text-emerald-300">
+                          {fmtMoney(investedForTags(budgetItems, song.tags))} in
+                        </span>
+                      )}
                     </div>
+                    {(song.tags ?? []).length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px] text-cyan-300/80">
+                        {(song.tags ?? []).map((t) => (
+                          <span key={t}>#{t}</span>
+                        ))}
+                      </div>
+                    )}
                     {song.nextAction && (
                       <div className="mt-2 text-xs text-[#a3a3a3]">
                         Next: <span className="text-[#f5f5f5]">{song.nextAction}</span>
@@ -289,7 +321,10 @@ export default function BoardSection() {
         <div className="space-y-6">
           {typeLanes.map((lane) => (
             <div key={lane}>
-              <h3 className="mb-2 text-sm font-semibold text-cyan-300">{lane}</h3>
+              <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#f5f5f5]">
+                <span className={`h-2.5 w-2.5 rounded-sm ${categoryDot(lane)}`} />
+                {lane}
+              </h3>
               {renderBoard(laneItems(lane))}
             </div>
           ))}
@@ -354,8 +389,14 @@ export default function BoardSection() {
                 </option>
               ))}
             </Select>
-            <FormInput label="Genre" value={form.genre} onChange={(e) => setForm({ ...form, genre: e.target.value })} />
+            <FormInput type="date" label="Release date" value={form.releaseDate} onChange={(e) => setForm({ ...form, releaseDate: e.target.value })} />
           </div>
+          <FormInput
+            label="Hashtags"
+            value={form.tags}
+            onChange={(e) => setForm({ ...form, tags: e.target.value })}
+            placeholder="#june26 — budget entries with the same tag count toward this release"
+          />
           <FormInput label="Next action" value={form.nextAction} onChange={(e) => setForm({ ...form, nextAction: e.target.value })} />
           {settings.customFields.map((f) => (
             <FormInput

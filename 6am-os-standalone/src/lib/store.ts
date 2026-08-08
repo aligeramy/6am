@@ -49,6 +49,8 @@ interface OSActions {
   addSong: (song: Omit<Song, "id" | "createdAt" | "updatedAt">) => void;
   updateSong: (id: string, patch: Partial<Song>) => void;
   deleteSong: (id: string) => void;
+  toggleSongChecklistItem: (songId: string, itemId: string) => void;
+  adjustSongChecklistCount: (songId: string, itemId: string, delta: number) => void;
 
   addRelease: (release: Omit<Release, "id" | "createdAt" | "updatedAt">) => void;
   updateRelease: (id: string, patch: Partial<Release>) => void;
@@ -126,6 +128,32 @@ export const useOSStore = create<OSStore>()(
           songs: state.songs.map((s) => (s.id === id ? { ...s, ...patch, updatedAt: ts() } : s)),
         })),
       deleteSong: (id) => set((state) => ({ songs: state.songs.filter((s) => s.id !== id) })),
+      toggleSongChecklistItem: (songId, itemId) =>
+        set((state) => ({
+          songs: state.songs.map((s) =>
+            s.id === songId
+              ? {
+                  ...s,
+                  checklist: (s.checklist ?? []).map((i) => (i.id === itemId ? { ...i, done: !i.done } : i)),
+                  updatedAt: ts(),
+                }
+              : s
+          ),
+        })),
+      adjustSongChecklistCount: (songId, itemId, delta) =>
+        set((state) => ({
+          songs: state.songs.map((s) => {
+            if (s.id !== songId) return s;
+            const checklist = (s.checklist ?? []).map((raw) => {
+              if (raw.id !== itemId) return raw;
+              const item = normalizeChecklistItem(raw);
+              const target = item.target ?? 0;
+              const count = Math.max(0, Math.min(target, (item.count ?? 0) + delta));
+              return { ...item, count, done: target > 0 && count >= target };
+            });
+            return { ...s, checklist, updatedAt: ts() };
+          }),
+        })),
 
       addRelease: (release) =>
         set((state) => ({
@@ -296,6 +324,103 @@ export const useOSStore = create<OSStore>()(
     }),
     {
       name: "6am-os-storage",
+      version: 2,
+      // v2: unified model — everything is a release (Main/Side/Brand) on the board.
+      // Migrate legacy separate releases/content into board items so nothing scheduled is lost.
+      migrate: (persisted: unknown) => {
+        const state = persisted as Record<string, unknown> & Partial<OSState>;
+        if (!state || typeof state !== "object") return persisted as OSState;
+
+        const typeMap: Record<string, string> = {
+          Song: "Main Release",
+          "Music Video": "Side Release",
+          Project: "Brand Release",
+        };
+
+        if (state.settings?.itemTypes) {
+          state.settings.itemTypes = [
+            ...new Set(state.settings.itemTypes.map((t: string) => typeMap[t] ?? t)),
+          ];
+        }
+
+        if (Array.isArray(state.songs)) {
+          state.songs = state.songs.map((s) => ({
+            ...s,
+            itemType: typeMap[s.itemType ?? "Song"] ?? s.itemType ?? "Main Release",
+          }));
+        }
+
+        const now = new Date().toISOString();
+        const extra: Song[] = [];
+
+        if (Array.isArray(state.releases)) {
+          for (const r of state.releases) {
+            if (!r.releaseDate) continue;
+            extra.push({
+              id: `migrated-${r.id}`,
+              title: r.title,
+              stage: r.phase === "Released" || r.phase === "Archived" ? "Released" : "Production",
+              itemType: "Main Release",
+              priority: "High",
+              releaseDate: r.releaseDate,
+              checklist: r.preReleaseChecklist,
+              tags: [],
+              vibe: "",
+              theme: "",
+              genre: "",
+              bpm: "",
+              key: "",
+              collaborators: "",
+              producer: "",
+              nextAction: "",
+              releasePotential: "High",
+              notes: r.notes ?? "",
+              fileLinks: "",
+              createdAt: r.createdAt ?? now,
+              updatedAt: r.updatedAt ?? now,
+            });
+          }
+        }
+
+        if (Array.isArray(state.content)) {
+          for (const c of state.content) {
+            if (!c.postDate) continue;
+            extra.push({
+              id: `migrated-${c.id}`,
+              title: c.title,
+              stage: c.status === "Posted" || c.status === "Reviewed" ? "Released" : "Production",
+              itemType: "Brand Release",
+              priority: "Medium",
+              releaseDate: c.postDate,
+              tags: [],
+              vibe: "",
+              theme: "",
+              genre: "",
+              bpm: "",
+              key: "",
+              collaborators: "",
+              producer: "",
+              nextAction: "",
+              releasePotential: "Medium",
+              notes: c.caption ?? "",
+              fileLinks: "",
+              createdAt: c.createdAt ?? now,
+              updatedAt: c.updatedAt ?? now,
+            });
+          }
+        }
+
+        // Avoid double-migrating if the same linked song already exists with that date.
+        const existingTitles = new Set((state.songs ?? []).map((s) => `${s.title}|${s.releaseDate ?? ""}`));
+        state.songs = [
+          ...(state.songs ?? []),
+          ...extra.filter((e) => !existingTitles.has(`${e.title}|${e.releaseDate ?? ""}`)),
+        ];
+        state.releases = [];
+        state.content = [];
+
+        return state as OSState;
+      },
     }
   )
 );

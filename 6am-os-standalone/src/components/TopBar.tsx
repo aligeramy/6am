@@ -115,12 +115,18 @@ function SyncModal({ open, onClose }: { open: boolean; onClose: () => void }) {
 }
 
 function ReleaseCountdown() {
-  const releases = useOSStore((s) => s.releases);
+  const songs = useOSStore((s) => s.songs);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const next = releases
-    .filter((r) => r.phase !== "Released" && r.phase !== "Archived" && r.releaseDate)
-    .map((r) => ({ r, d: new Date(r.releaseDate) }))
+  const next = songs
+    .filter(
+      (s) =>
+        (s.itemType ?? "Main Release") === "Main Release" &&
+        s.releaseDate &&
+        s.stage !== "Released" &&
+        s.stage !== "Archived"
+    )
+    .map((s) => ({ s, d: new Date(s.releaseDate!) }))
     .filter(({ d }) => d.getTime() >= today.getTime())
     .sort((a, b) => a.d.getTime() - b.d.getTime())[0];
   if (!next) return null;
@@ -129,9 +135,9 @@ function ReleaseCountdown() {
     <button
       onClick={() => scrollToSection("calendar")}
       className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300 transition-colors hover:bg-violet-500/20"
-      title={`${next.r.title} — ${next.d.toLocaleDateString()}`}
+      title={`${next.s.title} — ${next.d.toLocaleDateString()}`}
     >
-      <span className="max-w-[120px] truncate">{next.r.title}</span>
+      <span className="max-w-[120px] truncate">{next.s.title}</span>
       <span className="font-semibold">{days === 0 ? "today" : `${days}d`}</span>
     </button>
   );

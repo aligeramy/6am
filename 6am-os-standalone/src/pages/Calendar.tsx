@@ -1,32 +1,10 @@
 import { useMemo, useState } from "react";
-import { useOSStore } from "../lib/store";
+import { useOSStore, normalizeChecklistItem } from "../lib/store";
 import { SectionHeader, Modal, FormInput, TextArea, Select, PrimaryButton, SecondaryButton } from "../components/ui";
-import { ChevronLeft, ChevronRight, Trash2, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Trash2, Check, Minus, Plus } from "lucide-react";
 import { buildReleaseChecklist } from "../lib/seed";
-import { normalizeChecklistItem } from "../lib/store";
-import { Minus, Plus } from "lucide-react";
-
-type EventKind = "release" | "content" | "studio";
-
-interface CalEvent {
-  id: string;
-  kind: EventKind;
-  title: string;
-  date: string;
-  notes: string;
-}
-
-const KIND_STYLES: Record<EventKind, string> = {
-  release: "bg-violet-500/20 text-violet-300",
-  content: "bg-cyan-500/20 text-cyan-300",
-  studio: "bg-amber-500/20 text-amber-300",
-};
-
-const KIND_LABELS: Record<EventKind, string> = {
-  release: "Release",
-  content: "Content",
-  studio: "Studio session",
-};
+import { categoryChip, categoryDot, parseTags, tagsToInput } from "../lib/categories";
+import { Song } from "../types/os";
 
 function toDateKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -36,47 +14,34 @@ function monthLabel(d: Date) {
   return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
-export default function CalendarPage() {
-  const releases = useOSStore((s) => s.releases);
-  const content = useOSStore((s) => s.content);
-  const addRelease = useOSStore((s) => s.addRelease);
-  const addContent = useOSStore((s) => s.addContent);
-  const updateRelease = useOSStore((s) => s.updateRelease);
-  const updateContent = useOSStore((s) => s.updateContent);
-  const deleteRelease = useOSStore((s) => s.deleteRelease);
-  const deleteContent = useOSStore((s) => s.deleteContent);
-  const toggleChecklistItem = useOSStore((s) => s.toggleChecklistItem);
-  const adjustChecklistCount = useOSStore((s) => s.adjustChecklistCount);
+export default function CalendarSection() {
+  const songs = useOSStore((s) => s.songs);
+  const settings = useOSStore((s) => s.settings);
+  const addSong = useOSStore((s) => s.addSong);
+  const updateSong = useOSStore((s) => s.updateSong);
+  const deleteSong = useOSStore((s) => s.deleteSong);
+  const toggleSongChecklistItem = useOSStore((s) => s.toggleSongChecklistItem);
+  const adjustSongChecklistCount = useOSStore((s) => s.adjustSongChecklistCount);
 
   const [cursor, setCursor] = useState(() => new Date());
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<CalEvent | null>(null);
-  const [draftDate, setDraftDate] = useState("");
-  const [form, setForm] = useState({ kind: "content" as EventKind, title: "", notes: "" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({ title: "", itemType: "Main Release", date: "", tags: "", notes: "" });
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
 
-  const events: CalEvent[] = useMemo(() => {
-    const r: CalEvent[] = releases.map((x) => ({ id: x.id, kind: "release" as EventKind, title: x.title, date: x.releaseDate, notes: x.notes }));
-    const c: CalEvent[] = content.map((x) => ({
-      id: x.id,
-      kind: (x.format === "studio clip" ? "studio" : "content") as EventKind,
-      title: x.title,
-      date: x.postDate,
-      notes: x.caption,
-    }));
-    return [...r, ...c].filter((e) => e.date);
-  }, [releases, content]);
+  const editing = editingId ? songs.find((s) => s.id === editingId) ?? null : null;
 
   const eventsByDay = useMemo(() => {
-    const map = new Map<string, CalEvent[]>();
-    for (const e of events) {
-      const key = e.date.slice(0, 10);
+    const map = new Map<string, Song[]>();
+    for (const s of songs) {
+      if (!s.releaseDate) continue;
+      const key = s.releaseDate.slice(0, 10);
       if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(e);
+      map.get(key)!.push(s);
     }
     return map;
-  }, [events]);
+  }, [songs]);
 
   const days = useMemo(() => {
     const year = cursor.getFullYear();
@@ -93,49 +58,53 @@ export default function CalendarPage() {
 
   function openCreate(dateKey: string) {
     if (dragId) return;
-    setEditing(null);
-    setDraftDate(dateKey);
-    setForm({ kind: "content", title: "", notes: "" });
+    setEditingId(null);
+    setForm({ title: "", itemType: settings.itemTypes[0] ?? "Main Release", date: dateKey, tags: "", notes: "" });
     setModalOpen(true);
   }
 
-  function openEdit(e: CalEvent) {
-    setEditing(e);
-    setDraftDate(e.date.slice(0, 10));
-    setForm({ kind: e.kind, title: e.title, notes: e.notes });
+  function openEdit(s: Song) {
+    setEditingId(s.id);
+    setForm({
+      title: s.title,
+      itemType: s.itemType ?? "Main Release",
+      date: (s.releaseDate ?? "").slice(0, 10),
+      tags: tagsToInput(s.tags),
+      notes: s.notes,
+    });
     setModalOpen(true);
   }
 
   function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault();
     if (!form.title.trim()) return;
+    const base = {
+      title: form.title,
+      itemType: form.itemType,
+      releaseDate: form.date,
+      tags: parseTags(form.tags),
+      notes: form.notes,
+    };
     if (editing) {
-      if (editing.kind === "release") updateRelease(editing.id, { title: form.title, releaseDate: draftDate, notes: form.notes });
-      else updateContent(editing.id, { title: form.title, postDate: draftDate, caption: form.notes });
-    } else if (form.kind === "release") {
-      addRelease({
-        title: form.title,
-        linkedSongId: null,
-        releaseDate: draftDate,
-        phase: "Planning",
-        progress: 0,
-        notes: form.notes,
-        preReleaseChecklist: buildReleaseChecklist(),
-        releaseDayChecklist: [],
-        postReleaseChecklist: [],
-      });
+      const patch: Partial<Song> = { ...base };
+      if (form.itemType === "Main Release" && !editing.checklist?.length) patch.checklist = buildReleaseChecklist();
+      updateSong(editing.id, patch);
     } else {
-      addContent({
-        title: form.title,
-        platform: "TikTok",
-        linkedSongId: null,
-        format: form.kind === "studio" ? "studio clip" : "other",
-        status: "Idea",
-        caption: form.notes,
-        filmingNotes: "",
-        postDate: draftDate,
-        metrics: { views: 0, likes: 0, comments: 0, shares: 0, saves: 0 },
-        learning: "",
+      addSong({
+        ...base,
+        stage: settings.stages[0] ?? "Idea",
+        priority: settings.priorities[0] ?? "High",
+        checklist: form.itemType === "Main Release" ? buildReleaseChecklist() : undefined,
+        vibe: "",
+        theme: "",
+        genre: "",
+        bpm: "",
+        key: "",
+        collaborators: "",
+        producer: "",
+        nextAction: "",
+        releasePotential: "Medium",
+        fileLinks: "",
       });
     }
     setModalOpen(false);
@@ -143,18 +112,12 @@ export default function CalendarPage() {
 
   function handleDelete() {
     if (!editing) return;
-    if (editing.kind === "release") deleteRelease(editing.id);
-    else deleteContent(editing.id);
+    deleteSong(editing.id);
     setModalOpen(false);
   }
 
   function handleDrop(dateKey: string) {
-    if (!dragId) return;
-    const e = events.find((ev) => ev.id === dragId);
-    if (e) {
-      if (e.kind === "release") updateRelease(e.id, { releaseDate: dateKey });
-      else updateContent(e.id, { postDate: dateKey });
-    }
+    if (dragId) updateSong(dragId, { releaseDate: dateKey });
     setDragId(null);
     setDragOver(null);
   }
@@ -162,13 +125,11 @@ export default function CalendarPage() {
   const todayKey = toDateKey(new Date());
   const currentMonth = cursor.getMonth();
 
-  const editingRelease = editing && editing.kind === "release" ? releases.find((r) => r.id === editing.id) : null;
-
   return (
     <div>
       <SectionHeader
         title="Calendar"
-        subtitle="Click a day to add. Drag anything to reschedule."
+        subtitle="What's coming out when. Click a day to add, drag to reschedule."
         action={
           <div className="flex items-center gap-2">
             <button
@@ -189,10 +150,10 @@ export default function CalendarPage() {
       />
 
       <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-[#a3a3a3]">
-        {(Object.keys(KIND_LABELS) as EventKind[]).map((k) => (
-          <span key={k} className="flex items-center gap-1.5">
-            <span className={`h-2.5 w-2.5 rounded-sm ${KIND_STYLES[k].split(" ")[0]}`} />
-            {KIND_LABELS[k]}
+        {settings.itemTypes.map((t) => (
+          <span key={t} className="flex items-center gap-1.5">
+            <span className={`h-2.5 w-2.5 rounded-sm ${categoryDot(t)}`} />
+            {t}
           </span>
         ))}
       </div>
@@ -223,16 +184,16 @@ export default function CalendarPage() {
                 {d.getDate()}
               </div>
               <div className="space-y-1">
-                {dayEvents.map((e) => (
+                {dayEvents.map((s) => (
                   <div
-                    key={e.id}
+                    key={s.id}
                     draggable
-                    onDragStart={(ev) => { ev.stopPropagation(); setDragId(e.id); }}
+                    onDragStart={(ev) => { ev.stopPropagation(); setDragId(s.id); }}
                     onDragEnd={() => { setDragId(null); setDragOver(null); }}
-                    onClick={(ev) => { ev.stopPropagation(); openEdit(e); }}
-                    className={`cursor-grab truncate rounded-md px-1.5 py-0.5 text-[11px] font-medium active:cursor-grabbing ${KIND_STYLES[e.kind]}`}
+                    onClick={(ev) => { ev.stopPropagation(); openEdit(s); }}
+                    className={`cursor-grab truncate rounded-md px-1.5 py-0.5 text-[11px] font-medium active:cursor-grabbing ${categoryChip(s.itemType)}`}
                   >
-                    {e.title}
+                    {s.title}
                   </div>
                 ))}
               </div>
@@ -241,24 +202,32 @@ export default function CalendarPage() {
         })}
       </div>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Edit Event" : "New Event"}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Edit Release" : "New Release"}>
         <form onSubmit={handleSubmit} className="space-y-3">
-          {!editing && (
-            <Select label="Type" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as EventKind })}>
-              <option value="content">Content post</option>
-              <option value="studio">Studio session</option>
-              <option value="release">Release</option>
-            </Select>
-          )}
           <FormInput label="Title" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          <FormInput type="date" label="Date" required value={draftDate} onChange={(e) => setDraftDate(e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <Select label="Type" value={form.itemType} onChange={(e) => setForm({ ...form, itemType: e.target.value })}>
+              {settings.itemTypes.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </Select>
+            <FormInput type="date" label="Date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+          </div>
+          <FormInput
+            label="Hashtags"
+            value={form.tags}
+            onChange={(e) => setForm({ ...form, tags: e.target.value })}
+            placeholder="#june26 #video"
+          />
           <TextArea label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
 
-          {editingRelease && (
+          {editing && (editing.checklist?.length ?? 0) > 0 && (
             <div>
               <div className="mb-1.5 text-xs uppercase tracking-wide text-[#a3a3a3]">Release To-Do</div>
               <ul className="space-y-1">
-                {editingRelease.preReleaseChecklist.map(normalizeChecklistItem).map((item) =>
+                {(editing.checklist ?? []).map(normalizeChecklistItem).map((item) =>
                   item.target ? (
                     <li key={item.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm">
                       <span
@@ -268,13 +237,11 @@ export default function CalendarPage() {
                       >
                         {item.done && <Check size={11} />}
                       </span>
-                      <span className={`flex-1 ${item.done ? "text-[#a3a3a3] line-through" : "text-[#f5f5f5]"}`}>
-                        {item.label}
-                      </span>
+                      <span className={`flex-1 ${item.done ? "text-[#a3a3a3] line-through" : "text-[#f5f5f5]"}`}>{item.label}</span>
                       <span className="flex items-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => adjustChecklistCount(editingRelease.id, "preReleaseChecklist", item.id, -1)}
+                          onClick={() => adjustSongChecklistCount(editing.id, item.id, -1)}
                           className="rounded-md border border-[#2a2a2a] bg-[#151515] p-1 text-[#a3a3a3] hover:bg-[#1c1c1c] hover:text-[#f5f5f5]"
                         >
                           <Minus size={12} />
@@ -284,7 +251,7 @@ export default function CalendarPage() {
                         </span>
                         <button
                           type="button"
-                          onClick={() => adjustChecklistCount(editingRelease.id, "preReleaseChecklist", item.id, 1)}
+                          onClick={() => adjustSongChecklistCount(editing.id, item.id, 1)}
                           className="rounded-md border border-[#2a2a2a] bg-[#151515] p-1 text-[#a3a3a3] hover:bg-[#1c1c1c] hover:text-[#f5f5f5]"
                         >
                           <Plus size={12} />
@@ -294,7 +261,7 @@ export default function CalendarPage() {
                   ) : (
                     <li
                       key={item.id}
-                      onClick={() => toggleChecklistItem(editingRelease.id, "preReleaseChecklist", item.id)}
+                      onClick={() => toggleSongChecklistItem(editing.id, item.id)}
                       className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-[#1c1c1c]"
                     >
                       <span

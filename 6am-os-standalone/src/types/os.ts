@@ -14,7 +14,7 @@ export const SONG_STAGES: SongStage[] = [
   "Released",
 ];
 
-export const DEFAULT_ITEM_TYPES = ["Song", "Music Video", "Project"];
+export const DEFAULT_ITEM_TYPES = ["Main Release", "Side Release", "Brand Release"];
 
 export interface CustomField {
   id: string;
@@ -43,6 +43,9 @@ export interface Song {
   stage: SongStage;
   itemType?: string;
   custom?: Record<string, string>;
+  tags?: string[];
+  releaseDate?: string;
+  checklist?: ChecklistItem[];
   priority: Priority;
   vibe: string;
   theme: string;
@@ -366,6 +369,7 @@ export interface BudgetItem {
   type: "income" | "expense";
   category: BudgetCategory;
   linkedSongId: string | null;
+  tags?: string[];
   date: string;
   notes: string;
   createdAt: string;

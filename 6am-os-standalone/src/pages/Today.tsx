@@ -3,21 +3,12 @@ import { useOSStore, normalizeChecklistItem } from "../lib/store";
 import {
   DashboardCard,
   StatCard,
-  ProgressBar,
-  StatusPill,
   SectionHeader,
   EmptyState,
   IconButton,
 } from "../components/ui";
 import { Plus, Trash2, Check, Lightbulb } from "lucide-react";
-
-function daysUntil(dateStr: string) {
-  const target = new Date(dateStr);
-  const now = new Date();
-  target.setHours(0, 0, 0, 0);
-  now.setHours(0, 0, 0, 0);
-  return Math.round((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-}
+import { categoryChip } from "../lib/categories";
 
 function scrollToSection(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -27,17 +18,16 @@ function dateKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-const WEEK_KIND_STYLES: Record<string, string> = {
-  release: "bg-violet-500/20 text-violet-300",
-  content: "bg-cyan-500/20 text-cyan-300",
-  studio: "bg-amber-500/20 text-amber-300",
-};
+function daysUntil(dateStr: string) {
+  const target = new Date(dateStr);
+  const now = new Date();
+  target.setHours(0, 0, 0, 0);
+  now.setHours(0, 0, 0, 0);
+  return Math.round((target.getTime() - now.getTime()) / 86_400_000);
+}
 
 export default function HomeSection() {
-  const releases = useOSStore((s) => s.releases);
   const songs = useOSStore((s) => s.songs);
-  const content = useOSStore((s) => s.content);
-  const tasks = useOSStore((s) => s.tasks);
   const vault = useOSStore((s) => s.vault);
 
   const priorityItems = useOSStore((s) => s.priorityItems);
@@ -49,33 +39,28 @@ export default function HomeSection() {
 
   const [priorityDraft, setPriorityDraft] = useState("");
   const [capture, setCapture] = useState("");
-  const [tasksOpen, setTasksOpen] = useState(false);
 
-  const activeRelease = useMemo(() => {
-    const active = releases.filter((r) => r.phase !== "Released" && r.phase !== "Archived" && r.phase !== "Post-release");
-    return active.sort((a, b) => new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime())[0];
-  }, [releases]);
+  const todayStr = dateKey(new Date());
 
-  const linkedSong = activeRelease ? songs.find((s) => s.id === activeRelease.linkedSongId) : undefined;
+  const nextMain = useMemo(() => {
+    return songs
+      .filter(
+        (s) =>
+          (s.itemType ?? "Main Release") === "Main Release" &&
+          s.releaseDate &&
+          s.releaseDate.slice(0, 10) >= todayStr &&
+          s.stage !== "Released" &&
+          s.stage !== "Archived"
+      )
+      .sort((a, b) => (a.releaseDate! > b.releaseDate! ? 1 : -1))[0];
+  }, [songs, todayStr]);
 
-  const nextReleaseTasks = useMemo(() => {
-    if (!activeRelease) return [];
-    const all = [...activeRelease.preReleaseChecklist, ...activeRelease.releaseDayChecklist, ...activeRelease.postReleaseChecklist];
-    return all.map(normalizeChecklistItem).filter((i) => !i.done).slice(0, 3);
-  }, [activeRelease]);
-
-  const recentIdeas = useMemo(
-    () => [...vault].sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1)).slice(0, 5),
-    [vault]
-  );
+  const nextTasks = useMemo(() => {
+    if (!nextMain?.checklist) return [];
+    return nextMain.checklist.map(normalizeChecklistItem).filter((i) => !i.done).slice(0, 3);
+  }, [nextMain]);
 
   const weekDays = useMemo(() => {
-    const events = [
-      ...releases.filter((r) => r.releaseDate).map((r) => ({ id: r.id, kind: "release", title: r.title, date: r.releaseDate.slice(0, 10) })),
-      ...content
-        .filter((c) => c.postDate)
-        .map((c) => ({ id: c.id, kind: c.format === "studio clip" ? "studio" : "content", title: c.title, date: c.postDate.slice(0, 10) })),
-    ];
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() + i);
@@ -85,23 +70,22 @@ export default function HomeSection() {
         isToday: i === 0,
         weekday: d.toLocaleDateString(undefined, { weekday: "short" }),
         dayNum: d.getDate(),
-        events: events.filter((e) => e.date === key),
+        events: songs.filter((s) => s.releaseDate?.slice(0, 10) === key),
       };
     });
-  }, [releases, content]);
+  }, [songs]);
 
-  const upcomingReleasesCount = releases.filter((r) => r.phase !== "Released" && r.phase !== "Archived").length;
-  const contentReadyCount = content.filter((c) => c.status === "Idea" || c.status === "Scripted").length;
-  const tasksDueThisWeekList = useMemo(() => {
-    const now = new Date();
-    const weekFromNow = new Date();
-    weekFromNow.setDate(now.getDate() + 7);
-    return tasks.filter((t) => {
-      if (t.status === "Done" || !t.dueDate) return false;
-      const due = new Date(t.dueDate);
-      return due >= now && due <= weekFromNow;
-    });
-  }, [tasks]);
+  const recentIdeas = useMemo(
+    () => [...vault].sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1)).slice(0, 5),
+    [vault]
+  );
+
+  const upcoming = (type: string) =>
+    songs.filter(
+      (s) => (s.itemType ?? "Main Release") === type && s.releaseDate && s.releaseDate.slice(0, 10) >= todayStr
+    ).length;
+
+  const activeCount = songs.filter((s) => s.stage !== "Released" && s.stage !== "Archived").length;
 
   function handleAddPriority() {
     const text = priorityDraft.trim();
@@ -128,32 +112,27 @@ export default function HomeSection() {
       <SectionHeader title="Home" subtitle={todayLabel} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <DashboardCard title="Current Active Release" className="lg:col-span-2">
-          {activeRelease ? (
+        <DashboardCard title="Next Main Release" className="lg:col-span-2">
+          {nextMain ? (
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <div className="text-lg font-semibold text-[#f5f5f5]">{linkedSong?.title ?? activeRelease.title}</div>
+                  <div className="text-lg font-semibold text-[#f5f5f5]">{nextMain.title}</div>
                   <div className="mt-1 text-sm text-[#a3a3a3]">
-                    Releases {new Date(activeRelease.releaseDate).toLocaleDateString()} · {daysUntil(activeRelease.releaseDate)} days to go
+                    Drops {new Date(nextMain.releaseDate!).toLocaleDateString()} ·{" "}
+                    {daysUntil(nextMain.releaseDate!) === 0 ? "today" : `${daysUntil(nextMain.releaseDate!)} days to go`}
                   </div>
                 </div>
-                <StatusPill status={activeRelease.phase} />
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${categoryChip(nextMain.itemType)}`}>
+                  {nextMain.stage}
+                </span>
               </div>
 
-              <div className="mt-4">
-                <div className="mb-1 flex items-center justify-between text-xs text-[#a3a3a3]">
-                  <span>Progress</span>
-                  <span>{activeRelease.progress}%</span>
-                </div>
-                <ProgressBar value={activeRelease.progress} />
-              </div>
-
-              {nextReleaseTasks.length > 0 && (
+              {nextTasks.length > 0 && (
                 <div className="mt-4">
                   <div className="mb-2 text-xs uppercase tracking-wide text-[#a3a3a3]">Next Up</div>
                   <ul className="space-y-1.5 text-sm text-[#f5f5f5]">
-                    {nextReleaseTasks.map((t) => (
+                    {nextTasks.map((t) => (
                       <li key={t.id} className="flex items-center gap-2">
                         <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
                         {t.label}
@@ -175,7 +154,7 @@ export default function HomeSection() {
               </div>
             </div>
           ) : (
-            <EmptyState title="No active release" subtitle="Add a release on the calendar below to see it here." />
+            <EmptyState title="No main release scheduled" subtitle="Add one on the calendar below — one song a month." />
           )}
         </DashboardCard>
 
@@ -230,9 +209,9 @@ export default function HomeSection() {
                   {day.weekday} {day.dayNum}
                 </div>
                 <div className="mt-1 space-y-0.5">
-                  {day.events.slice(0, 3).map((e) => (
-                    <div key={e.id} className={`truncate rounded px-1 py-0.5 text-[10px] font-medium ${WEEK_KIND_STYLES[e.kind]}`}>
-                      {e.title}
+                  {day.events.slice(0, 3).map((s) => (
+                    <div key={s.id} className={`truncate rounded px-1 py-0.5 text-[10px] font-medium ${categoryChip(s.itemType)}`}>
+                      {s.title}
                     </div>
                   ))}
                   {day.events.length > 3 && <div className="text-[10px] text-[#6b6b6b]">+{day.events.length - 3} more</div>}
@@ -276,38 +255,12 @@ export default function HomeSection() {
         </DashboardCard>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        <StatCard
-          label="Active Projects"
-          value={songs.filter((s) => s.stage !== "Released" && s.stage !== "Archived").length}
-          onClick={() => scrollToSection("board")}
-        />
-        <StatCard label="Upcoming Releases" value={upcomingReleasesCount} onClick={() => scrollToSection("calendar")} />
-        <StatCard label="Content Ready" value={contentReadyCount} onClick={() => scrollToSection("calendar")} />
-        <StatCard
-          label="Tasks Due This Week"
-          value={tasksDueThisWeekList.length}
-          accent="text-amber-300"
-          onClick={() => setTasksOpen((v) => !v)}
-        />
+      <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Active Projects" value={activeCount} onClick={() => scrollToSection("board")} />
+        <StatCard label="Main Upcoming" value={upcoming("Main Release")} accent="text-violet-300" onClick={() => scrollToSection("calendar")} />
+        <StatCard label="Side Upcoming" value={upcoming("Side Release")} accent="text-cyan-300" onClick={() => scrollToSection("calendar")} />
+        <StatCard label="Brand Upcoming" value={upcoming("Brand Release")} accent="text-amber-300" onClick={() => scrollToSection("calendar")} />
       </div>
-
-      {tasksOpen && (
-        <DashboardCard title="Tasks Due This Week" className="mt-4">
-          {tasksDueThisWeekList.length === 0 ? (
-            <p className="text-sm text-[#a3a3a3]">Nothing due this week.</p>
-          ) : (
-            <ul className="space-y-1.5">
-              {tasksDueThisWeekList.map((t) => (
-                <li key={t.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-sm text-[#f5f5f5] hover:bg-[#1c1c1c]">
-                  <span>{t.title}</span>
-                  <span className="text-xs text-[#a3a3a3]">{new Date(t.dueDate).toLocaleDateString()}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </DashboardCard>
-      )}
     </div>
   );
 }
