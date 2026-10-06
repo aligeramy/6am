@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Beer Log</title>
+  <meta name="description" content="Track the beers you drink." />
+  <meta name="theme-color" content="#16120d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Beer Log" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <style>
+    :root {
+      --bg: #16120d;
+      --surface: #211b14;
+      --surface-2: #2b241b;
+      --border: #3a3025;
+      --text: #f5ece0;
+      --muted: #a8977f;
+      --accent: #f2a93b;
+      --accent-ink: #1d1407;
+      --danger: #e2604f;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.4;
+      padding: env(safe-area-inset-top) 0 calc(80px + env(safe-area-inset-bottom));
+      -webkit-tap-highlight-color: transparent;
+    }
+    .wrap { max-width: 560px; margin: 0 auto; padding: 0 16px; }
+    header { display: flex; align-items: center; justify-content: space-between; padding: 20px 0 12px; }
+    h1 { font-size: 24px; margin: 0; letter-spacing: -0.02em; }
+    h1 span { color: var(--accent); }
+    h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 28px 0 10px; font-weight: 600; }
+
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 12px; }
+    .stat b { display: block; font-size: 28px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+    .stat small { color: var(--muted); font-size: 12px; }
+    .stat.hero b { color: var(--accent); }
+
+    .chart { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 12px 8px; margin-top: 10px; }
+    .bars { display: flex; align-items: flex-end; gap: 4px; height: 90px; }
+    .bar { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
+    .bar i { display: block; width: 100%; background: var(--accent); border-radius: 4px 4px 2px 2px; min-height: 2px; opacity: .9; }
+    .bar i.zero { background: var(--border); }
+    .bar em { font-style: normal; font-size: 10px; color: var(--muted); margin-top: 4px; }
+    .bar.today em { color: var(--text); font-weight: 700; }
+    .chart-meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 8px; }
+
+    .quick { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+    .quick::-webkit-scrollbar { display: none; }
+    .chip { flex: none; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); border-radius: 999px; padding: 9px 14px; font-size: 14px; cursor: pointer; white-space: nowrap; }
+    .chip:active { transform: scale(.97); }
+    .chip span { color: var(--muted); margin-left: 4px; }
+
+    .day { margin-top: 18px; }
+    .day-head { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+    .entry { display: flex; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 8px; cursor: pointer; }
+    .entry .glass { width: 36px; height: 36px; border-radius: 10px; background: var(--surface-2); display: grid; place-items: center; font-size: 20px; flex: none; }
+    .entry .info { flex: 1; min-width: 0; }
+    .entry .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .entry .meta { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .entry .right { text-align: right; font-size: 13px; color: var(--muted); flex: none; }
+    .stars { color: var(--accent); letter-spacing: 1px; }
+
+    .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+    .empty div { font-size: 48px; margin-bottom: 8px; }
+
+    .fab {
+      position: fixed; left: 50%; transform: translateX(-50%);
+      bottom: calc(18px + env(safe-area-inset-bottom));
+      background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 999px;
+      padding: 16px 28px; font-size: 17px; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,.45); cursor: pointer; z-index: 5;
+    }
+    .fab:active { transform: translateX(-50%) scale(.97); }
+    .icon-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 10px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
+
+    /* Sheet */
+    .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.6); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 10; }
+    .sheet {
+      position: fixed; left: 0; right: 0; bottom: 0; max-height: 92vh; overflow-y: auto;
+      background: var(--surface); border-top: 1px solid var(--border); border-radius: 20px 20px 0 0;
+      transform: translateY(100%); transition: transform .25s ease; z-index: 11;
+      padding: 8px 0 calc(20px + env(safe-area-inset-bottom));
+    }
+    .open .backdrop { opacity: 1; pointer-events: auto; }
+    .open .sheet { transform: translateY(0); }
+    .sheet .wrap { padding-top: 8px; }
+    .grabber { width: 40px; height: 5px; background: var(--border); border-radius: 3px; margin: 0 auto 10px; }
+    .sheet h3 { margin: 0 0 14px; font-size: 20px; }
+    label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
+    input, textarea, select {
+      width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px; font-size: 16px; font-family: inherit;
+    }
+    input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+    textarea { min-height: 70px; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+    .seg button { flex: 1 0 auto; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 10px 8px; font-size: 14px; cursor: pointer; }
+    .seg button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+    .rating { display: flex; gap: 4px; }
+    .rating button { background: none; border: 0; font-size: 32px; color: var(--border); cursor: pointer; padding: 0 2px; line-height: 1; }
+    .rating button.on { color: var(--accent); }
+    .actions { display: flex; gap: 10px; margin-top: 20px; }
+    .btn { flex: 1; border: 0; border-radius: 12px; padding: 14px; font-size: 16px; font-weight: 600; cursor: pointer; }
+    .btn.primary { background: var(--accent); color: var(--accent-ink); }
+    .btn.ghost { background: var(--surface-2); color: var(--text); }
+    .btn.danger { background: none; color: var(--danger); border: 1px solid var(--danger); flex: 0 0 auto; padding: 14px 18px; }
+    .settings-list button { display: block; width: 100%; text-align: left; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 14px; border-radius: 12px; margin-bottom: 8px; font-size: 16px; cursor: pointer; }
+    .settings-list button.warn { color: var(--danger); }
+    .hint { color: var(--muted); font-size: 13px; }
+    datalist { display: none; }
+
+    .toast { position: fixed; left: 50%; top: calc(16px + env(safe-area-inset-top)); transform: translate(-50%, -150%); background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-weight: 600; font-size: 14px; transition: transform .25s; z-index: 20; white-space: nowrap; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis; }
+    .toast.show { transform: translate(-50%, 0); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🍺 Beer <span>Log</span></h1>
+      <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙︎</button>
+    </header>
+
+    <div class="stats">
+      <div class="stat hero"><b id="sToday">0</b><small>today</small></div>
+      <div class="stat"><b id="sWeek">0</b><small>last 7 days</small></div>
+      <div class="stat"><b id="sTotal">0</b><small>all time</small></div>
+    </div>
+
+    <div class="chart">
+      <div class="bars" id="bars"></div>
+      <div class="chart-meta"><span>Last 14 days</span><span id="stdToday"></span></div>
+    </div>
+
+    <section id="quickSec" hidden>
+      <h2>Have another</h2>
+      <div class="quick" id="quick"></div>
+    </section>
+
+    <h2>History</h2>
+    <div id="history"></div>
+  </div>
+
+  <button class="fab" id="addBtn">+ Log a beer</button>
+
+  <!-- Add / edit sheet -->
+  <div id="entrySheet">
+    <div class="backdrop" data-close></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="entryTitle">
+      <div class="grabber"></div>
+      <form class="wrap" id="entryForm" autocomplete="off">
+        <h3 id="entryTitle">Log a beer</h3>
+        <label for="fName">Beer</label>
+        <input id="fName" list="nameList" placeholder="e.g. Guinness Draught" required />
+        <datalist id="nameList"></datalist>
+
+        <div class="row">
+          <div>
+            <label for="fBrewery">Brewery</label>
+            <input id="fBrewery" list="breweryList" placeholder="Optional" />
+            <datalist id="breweryList"></datalist>
+          </div>
+          <div>
+            <label for="fStyle">Style</label>
+            <input id="fStyle" list="styleList" placeholder="e.g. IPA" />
+            <datalist id="styleList">
+              <option>Lager</option><option>Pilsner</option><option>IPA</option><option>Hazy IPA</option>
+              <option>Pale Ale</option><option>Stout</option><option>Porter</option><option>Sour</option>
+              <option>Wheat</option><option>Amber</option><option>Belgian</option><option>Light</option>
+            </datalist>
+          </div>
+        </div>
+
+        <label>Size</label>
+        <div class="seg" id="sizeSeg"></div>
+
+        <div class="row">
+          <div>
+            <label for="fAbv">ABV %</label>
+            <input id="fAbv" type="number" inputmode="decimal" step="0.1" min="0" max="70" placeholder="5.0" />
+          </div>
+          <div>
+            <label for="fWhen">When</label>
+            <input id="fWhen" type="datetime-local" />
+          </div>
+        </div>
+
+        <label>Rating</label>
+        <div class="rating" id="rating"></div>
+
+        <label for="fNotes">Notes</label>
+        <textarea id="fNotes" placeholder="Where, who with, tasting notes…"></textarea>
+
+        <div class="actions">
+          <button type="button" class="btn danger" id="deleteBtn" hidden>Delete</button>
+          <button type="button" class="btn ghost" data-close>Cancel</button>
+          <button type="submit" class="btn primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Settings sheet -->
+  <div id="settingsSheet">
+    <div class="backdrop" data-close></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="grabber"></div>
+      <div class="wrap">
+        <h3 id="settingsTitle">Settings</h3>
+        <p class="hint">Your log is saved on this device only. Export a backup to move it to another phone or browser.</p>
+        <div class="settings-list">
+          <button id="exportBtn">⬇︎ Export backup (JSON)</button>
+          <button id="exportCsvBtn">⬇︎ Export spreadsheet (CSV)</button>
+          <button id="importBtn">⬆︎ Import backup</button>
+          <button id="clearBtn" class="warn">Delete all entries</button>
+        </div>
+        <input type="file" id="importFile" accept="application/json,.json" hidden />
+        <div class="actions"><button type="button" class="btn ghost" data-close>Done</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+  (() => {
+    const KEY = "beer-log-v1";
+    const SIZES = [
+      { label: "330 ml", ml: 330 },
+      { label: "12 oz", ml: 355 },
+      { label: "16 oz", ml: 473 },
+      { label: "500 ml", ml: 500 },
+      { label: "Pint (568)", ml: 568 },
+    ];
+    const $ = (id) => document.getElementById(id);
+
+    // ---------- storage ----------
+    let entries = load();
+    function load() {
+      try {
+        const raw = localStorage.getItem(KEY);
+        const data = raw ? JSON.parse(raw) : [];
+        return Array.isArray(data) ? data : [];
+      } catch { return []; }
+    }
+    function save() {
+      try { localStorage.setItem(KEY, JSON.stringify(entries)); }
+      catch { toast("Couldn't save — storage unavailable"); }
+    }
+    const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+    // ---------- helpers ----------
+    const dayKey = (d) => { d = new Date(d); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+    const startOfDay = (d) => { d = new Date(d); d.setHours(0, 0, 0, 0); return d; };
+    // US standard drink = 14 g pure alcohol; ethanol density 0.789 g/ml
+    const stdDrinks = (e) => (e.ml && e.abv ? (e.ml * (e.abv / 100) * 0.789) / 14 : 0);
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const sizeLabel = (ml) => (SIZES.find((s) => s.ml === ml)?.label ?? (ml ? `${ml} ml` : ""));
+    const toLocalInput = (d) => { d = new Date(d); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+    const fmtTime = (d) => new Date(d).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    function fmtDay(d) {
+      const today = startOfDay(new Date());
+      const diff = Math.round((today - startOfDay(d)) / 86400000);
+      if (diff === 0) return "Today";
+      if (diff === 1) return "Yesterday";
+      return new Date(d).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", year: diff > 300 ? "numeric" : undefined });
+    }
+
+    let toastTimer;
+    function toast(msg) {
+      const t = $("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove("show"), 1800);
+    }
+
+    // ---------- render ----------
+    function render() {
+      entries.sort((a, b) => b.at - a.at);
+      const now = new Date();
+      const todayStart = startOfDay(now).getTime();
+      const weekStart = todayStart - 6 * 86400000;
+
+      const today = entries.filter((e) => e.at >= todayStart);
+      $("sToday").textContent = today.length;
+      $("sWeek").textContent = entries.filter((e) => e.at >= weekStart).length;
+      $("sTotal").textContent = entries.length;
+      const std = today.reduce((n, e) => n + stdDrinks(e), 0);
+      $("stdToday").textContent = std ? `≈ ${std.toFixed(1)} standard drinks today` : "";
+
+      // 14-day chart
+      const counts = {};
+      entries.forEach((e) => { counts[dayKey(e.at)] = (counts[dayKey(e.at)] || 0) + 1; });
+      const days = [];
+      for (let i = 13; i >= 0; i--) {
+        const d = new Date(todayStart - i * 86400000);
+        days.push({ d, n: counts[dayKey(d)] || 0, today: i === 0 });
+      }
+      const max = Math.max(1, ...days.map((x) => x.n));
+      $("bars").innerHTML = days.map((x) => `
+        <div class="bar${x.today ? " today" : ""}" title="${x.d.toDateString()}: ${x.n}">
+          <i class="${x.n ? "" : "zero"}" style="height:${x.n ? Math.max(8, (x.n / max) * 100) : 2}%"></i>
+          <em>${x.d.toLocaleDateString([], { weekday: "narrow" })}</em>
+        </div>`).join("");
+
+      // quick re-add: most frequent recent beers
+      const seen = new Map();
+      entries.slice(0, 100).forEach((e) => {
+        const k = (e.name + "|" + (e.brewery || "")).toLowerCase();
+        const cur = seen.get(k);
+        if (cur) cur.count++; else seen.set(k, { e, count: 1 });
+      });
+      const quick = [...seen.values()].sort((a, b) => b.count - a.count || b.e.at - a.e.at).slice(0, 8);
+      $("quickSec").hidden = quick.length === 0;
+      $("quick").innerHTML = quick.map((q, i) =>
+        `<button class="chip" data-quick="${i}">+ ${esc(q.e.name)}${q.e.ml ? `<span>${esc(sizeLabel(q.e.ml))}</span>` : ""}</button>`).join("");
+      $("quick").querySelectorAll("[data-quick]").forEach((b) => {
+        b.onclick = () => {
+          const src = quick[+b.dataset.quick].e;
+          entries.push({ id: uid(), name: src.name, brewery: src.brewery, style: src.style, ml: src.ml, abv: src.abv, rating: 0, notes: "", at: Date.now() });
+          save(); render(); toast(`Logged ${src.name} 🍻`);
+        };
+      });
+
+      // autocomplete lists
+      const uniq = (key) => [...new Set(entries.map((e) => e[key]).filter(Boolean))].slice(0, 50);
+      $("nameList").innerHTML = uniq("name").map((n) => `<option value="${esc(n)}">`).join("");
+      $("breweryList").innerHTML = uniq("brewery").map((n) => `<option value="${esc(n)}">`).join("");
+
+      // history
+      if (!entries.length) {
+        $("history").innerHTML = `<div class="empty"><div>🍺</div>No beers logged yet.<br>Tap <b>Log a beer</b> to start.</div>`;
+        return;
+      }
+      const groups = [];
+      entries.forEach((e) => {
+        const k = dayKey(e.at);
+        if (!groups.length || groups[groups.length - 1].k !== k) groups.push({ k, at: e.at, items: [] });
+        groups[groups.length - 1].items.push(e);
+      });
+      $("history").innerHTML = groups.slice(0, 60).map((g) => `
+        <div class="day">
+          <div class="day-head"><span>${fmtDay(g.at)}</span><span>${g.items.length} 🍺</span></div>
+          ${g.items.map((e) => `
+            <div class="entry" data-id="${e.id}">
+              <div class="glass">🍺</div>
+              <div class="info">
+                <div class="name">${esc(e.name)}</div>
+                <div class="meta">${[e.brewery, e.style, e.abv ? e.abv + "%" : "", sizeLabel(e.ml)].filter(Boolean).map(esc).join(" · ") || "&nbsp;"}</div>
+              </div>
+              <div class="right">
+                ${e.rating ? `<div class="stars">${"★".repeat(e.rating)}</div>` : ""}
+                <div>${fmtTime(e.at)}</div>
+              </div>
+            </div>`).join("")}
+        </div>`).join("") + (groups.length > 60 ? `<p class="hint" style="text-align:center">Showing the latest 60 days. Export to see everything.</p>` : "");
+      $("history").querySelectorAll(".entry").forEach((el) => { el.onclick = () => openEntry(el.dataset.id); });
+    }
+
+    // ---------- sheets ----------
+    function openSheet(id) { $(id).classList.add("open"); }
+    function closeSheet(id) { $(id).classList.remove("open"); }
+    document.querySelectorAll("[data-close]").forEach((el) => {
+      el.addEventListener("click", () => el.closest("#entrySheet, #settingsSheet").classList.remove("open"));
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeSheet("entrySheet"); closeSheet("settingsSheet"); } });
+
+    // ---------- entry form ----------
+    let editingId = null, curSize = 355, curRating = 0;
+    function renderSize() {
+      $("sizeSeg").innerHTML = SIZES.map((s) => `<button type="button" class="${s.ml === curSize ? "on" : ""}" data-ml="${s.ml}">${s.label}</button>`).join("");
+      $("sizeSeg").querySelectorAll("button").forEach((b) => { b.onclick = () => { curSize = +b.dataset.ml; renderSize(); }; });
+    }
+    function renderRating() {
+      $("rating").innerHTML = [1, 2, 3, 4, 5].map((n) => `<button type="button" class="${n <= curRating ? "on" : ""}" data-r="${n}" aria-label="${n} stars">★</button>`).join("");
+      $("rating").querySelectorAll("button").forEach((b) => { b.onclick = () => { curRating = curRating === +b.dataset.r ? 0 : +b.dataset.r; renderRating(); }; });
+    }
+
+    function openEntry(id) {
+      const e = id ? entries.find((x) => x.id === id) : null;
+      editingId = e ? e.id : null;
+      $("entryTitle").textContent = e ? "Edit beer" : "Log a beer";
+      $("deleteBtn").hidden = !e;
+      $("fName").value = e?.name ?? "";
+      $("fBrewery").value = e?.brewery ?? "";
+      $("fStyle").value = e?.style ?? "";
+      $("fAbv").value = e?.abv ?? "";
+      $("fNotes").value = e?.notes ?? "";
+      $("fWhen").value = toLocalInput(e ? e.at : new Date());
+      curSize = e?.ml ?? (entries[0]?.ml || 355);
+      curRating = e?.rating ?? 0;
+      renderSize(); renderRating();
+      openSheet("entrySheet");
+      if (!e) setTimeout(() => $("fName").focus(), 250);
+    }
+
+    // Autofill brewery/style/abv when picking a beer you've had before
+    $("fName").addEventListener("change", () => {
+      if (editingId) return;
+      const prev = entries.find((x) => x.name.toLowerCase() === $("fName").value.trim().toLowerCase());
+      if (!prev) return;
+      if (!$("fBrewery").value) $("fBrewery").value = prev.brewery || "";
+      if (!$("fStyle").value) $("fStyle").value = prev.style || "";
+      if (!$("fAbv").value && prev.abv) $("fAbv").value = prev.abv;
+      if (prev.ml) { curSize = prev.ml; renderSize(); }
+    });
+
+    $("entryForm").addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const name = $("fName").value.trim();
+      if (!name) return;
+      const abv = parseFloat($("fAbv").value);
+      const when = $("fWhen").value ? new Date($("fWhen").value).getTime() : Date.now();
+      const data = {
+        name,
+        brewery: $("fBrewery").value.trim(),
+        style: $("fStyle").value.trim(),
+        ml: curSize,
+        abv: isNaN(abv) ? null : abv,
+        rating: curRating,
+        notes: $("fNotes").value.trim(),
+        at: isNaN(when) ? Date.now() : when,
+      };
+      if (editingId) {
+        Object.assign(entries.find((x) => x.id === editingId), data);
+        toast("Updated");
+      } else {
+        entries.push({ id: uid(), ...data });
+        toast(`Logged ${name} 🍻`);
+      }
+      save(); render(); closeSheet("entrySheet");
+    });
+
+    $("deleteBtn").onclick = () => {
+      if (!editingId || !confirm("Delete this beer?")) return;
+      entries = entries.filter((x) => x.id !== editingId);
+      save(); render(); closeSheet("entrySheet"); toast("Deleted");
+    };
+
+    $("addBtn").onclick = () => openEntry(null);
+    $("settingsBtn").onclick = () => openSheet("settingsSheet");
+
+    // ---------- import / export ----------
+    function download(name, text, type) {
+      const url = URL.createObjectURL(new Blob([text], { type }));
+      const a = Object.assign(document.createElement("a"), { href: url, download: name });
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    const stamp = () => new Date().toISOString().slice(0, 10);
+    $("exportBtn").onclick = () => download(`beer-log-${stamp()}.json`, JSON.stringify(entries, null, 2), "application/json");
+    $("exportCsvBtn").onclick = () => {
+      const cols = ["date", "beer", "brewery", "style", "ml", "abv", "rating", "notes"];
+      const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+      const rows = entries.map((e) => [new Date(e.at).toISOString(), e.name, e.brewery, e.style, e.ml, e.abv, e.rating || "", e.notes].map(q).join(","));
+      download(`beer-log-${stamp()}.csv`, [cols.join(","), ...rows].join("\n"), "text/csv");
+    };
+    $("importBtn").onclick = () => $("importFile").click();
+    $("importFile").onchange = async (ev) => {
+      const file = ev.target.files[0];
+      ev.target.value = "";
+      if (!file) return;
+      try {
+        const data = JSON.parse(await file.text());
+        if (!Array.isArray(data)) throw new Error();
+        const ids = new Set(entries.map((e) => e.id));
+        let added = 0;
+        data.forEach((e) => {
+          if (!e || typeof e.name !== "string" || typeof e.at !== "number") return;
+          if (!e.id || ids.has(e.id)) { if (e.id && ids.has(e.id)) return; e.id = uid(); }
+          entries.push(e); ids.add(e.id); added++;
+        });
+        save(); render(); toast(`Imported ${added} beers`);
+      } catch { toast("That file isn't a Beer Log backup"); }
+    };
+    $("clearBtn").onclick = () => {
+      if (!entries.length || !confirm(`Delete all ${entries.length} entries? This can't be undone.`)) return;
+      entries = []; save(); render(); closeSheet("settingsSheet"); toast("All entries deleted");
+    };
+
+    // refresh "today" when the app comes back to the foreground
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) render(); });
+
+    render();
+
+    if ("serviceWorker" in navigator && location.protocol === "https:") {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    }
+  })();
+  </script>
+</body>
+</html>
