@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { motion } from "framer-motion"
 import { X } from "lucide-react"
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 // Define props for the Modal component
 interface ModalProps {
@@ -95,11 +95,15 @@ const Modal = ({
   </div>
 )
 
-// Initialize Supabase client (use environment variables)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+// Created on first use, so the site still builds and loads when the Supabase env vars aren't set.
+let supabase: SupabaseClient | null = null
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !key) return null
+  if (!supabase) supabase = createClient(url, key)
+  return supabase
+}
 
 export default function EmailSignup() {
   const [isOpen, setIsOpen] = useState(false)
@@ -118,6 +122,13 @@ export default function EmailSignup() {
     e.preventDefault()
     setIsSubmitting(true)
     setErrorMessage(null)
+
+    const supabase = getSupabase()
+    if (!supabase) {
+      setErrorMessage("Sign-up isn't available right now. Please try again later.")
+      setIsSubmitting(false)
+      return
+    }
 
     try {
       const { error } = await supabase
