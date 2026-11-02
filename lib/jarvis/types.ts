@@ -110,6 +110,8 @@ export interface Settings {
   wakeWordEnabled: boolean
   bootSequence: boolean
   passcode?: string
+  /** Your own Anthropic key, kept in this browser only. Lets JARVIS reach Claude with no server (e.g. Netlify Drop). */
+  apiKey?: string
   currency: string
   weightUnit: "lb" | "kg"
   monthlyBudget: number

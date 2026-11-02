@@ -66,7 +66,8 @@ export default function JarvisApp() {
   const updateSettings = useJarvis((s) => s.updateSettings)
   const { scores, life, weakest } = useScores()
   const v = useVoice()
-  const online = link ? link.online && link.authorized : null
+  const hasKey = !!settings.apiKey?.trim()
+  const online = hasKey ? true : link ? link.online && link.authorized : null
   const onlineRef = useRef(false)
   onlineRef.current = !!online
   const inputRef = useRef<HTMLInputElement>(null)

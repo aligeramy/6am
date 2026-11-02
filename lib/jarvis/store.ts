@@ -260,7 +260,12 @@ export const useJarvis = create<JarvisStore>()(
           journal: data.journal ?? s.journal,
           chat: data.chat ?? s.chat,
           settings: data.settings
-            ? { ...DEFAULT_SETTINGS, ...data.settings, targets: { ...DEFAULT_SETTINGS.targets, ...data.settings.targets } }
+            ? {
+                ...DEFAULT_SETTINGS,
+                ...data.settings,
+                apiKey: data.settings.apiKey ?? s.settings.apiKey,
+                targets: { ...DEFAULT_SETTINGS.targets, ...data.settings.targets },
+              }
             : s.settings,
         })),
       resetAll: () => set({ ...EMPTY, settings: { ...DEFAULT_SETTINGS, address: get().settings.address } }),
@@ -309,4 +314,12 @@ export const exportData = (): JarvisData => {
     chat: s.chat,
     settings: s.settings,
   }
+}
+
+/** Data for a backup file: everything except your API key. */
+export const backupData = (): JarvisData => {
+  const data = exportData()
+  const { apiKey: _omit, ...settings } = data.settings
+  void _omit
+  return { ...data, settings }
 }
