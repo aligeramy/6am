@@ -4,7 +4,8 @@ import { Download, Upload } from "lucide-react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { demoData } from "@/lib/jarvis/demo"
 import { ADDRESS_PRESETS } from "@/lib/jarvis/pillars"
-import { exportData, useJarvis } from "@/lib/jarvis/store"
+import { backupData, useJarvis } from "@/lib/jarvis/store"
+import { testKey } from "@/lib/jarvis/brain"
 import type { Targets } from "@/lib/jarvis/types"
 import { voice } from "@/lib/jarvis/voice"
 import { cn } from "@/lib/utils"
@@ -76,7 +77,7 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
     })
 
   const doExport = () => {
-    const blob = new Blob([JSON.stringify(exportData(), null, 2)], { type: "application/json" })
+    const blob = new Blob([JSON.stringify(backupData(), null, 2)], { type: "application/json" })
     const a = document.createElement("a")
     a.href = URL.createObjectURL(blob)
     a.download = `jarvis-backup-${new Date().toISOString().slice(0, 10)}.json`
@@ -137,6 +138,10 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
             Preview: “Good morning, {st.address}.” You can also just say “Jarvis, call me Boss.”
           </div>
         </div>
+      </Section>
+
+      <Section title="Neural link · Claude">
+        <NeuralLink online={online} />
       </Section>
 
       <Section title="Morning briefing">
@@ -225,23 +230,9 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
             onBlur={(e) => update({ passcode: e.target.value || undefined })}
           />
           <span className="font-mono-hud block text-[0.65rem] text-[var(--j-faint)]">
-            Also sent to the server. Set the same value as JARVIS_ACCESS_CODE so strangers can't spend your API credits.
+            Asked for when JARVIS starts. On a server deploy, set the same value as JARVIS_ACCESS_CODE so strangers can't spend your API credits.
           </span>
         </label>
-        <div className="space-y-1 border border-[var(--j-line)] p-3">
-          <div className="flex items-center justify-between">
-            <span className="hud-label">Neural link</span>
-            <span className="font-hud text-[0.65rem]" style={{ color: online ? "var(--j-green)" : "var(--j-amber)" }}>
-              {online ? "CLAUDE ONLINE" : "LOCAL MODE"}
-            </span>
-          </div>
-          {!online && (
-            <p className="font-mono-hud text-[0.68rem] leading-relaxed text-[var(--j-muted)]">
-              To give JARVIS a full brain, add ANTHROPIC_API_KEY to .env.local (or your Vercel project) and restart. Until then, a built-in parser handles logging,
-              reports and briefings.
-            </p>
-          )}
-        </div>
       </Section>
 
       <Section title="Data">
@@ -293,5 +284,92 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
         </p>
       </Section>
     </Modal>
+  )
+}
+
+function NeuralLink({ online }: { online: boolean | null }) {
+  const apiKey = useJarvis((s) => s.settings.apiKey)
+  const update = useJarvis((s) => s.updateSettings)
+  const [draft, setDraft] = useState("")
+  const [test, setTest] = useState<{ state: "idle" | "testing" | "ok" | "fail"; message?: string }>({ state: "idle" })
+  const mode = apiKey ? "direct" : online ? "server" : "local"
+
+  const save = async () => {
+    const key = draft.trim()
+    if (!key) return
+    update({ apiKey: key })
+    setDraft("")
+    setTest({ state: "testing" })
+    const r = await testKey(key)
+    setTest({ state: r.ok ? "ok" : "fail", message: r.message })
+  }
+
+  const runTest = async () => {
+    if (!apiKey) return
+    setTest({ state: "testing" })
+    const r = await testKey(apiKey)
+    setTest({ state: r.ok ? "ok" : "fail", message: r.message })
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[0.85rem] text-[var(--j-text)]">Status</span>
+        <span className="font-hud text-[0.65rem]" style={{ color: mode === "local" ? "var(--j-amber)" : "var(--j-green)" }}>
+          {mode === "direct" ? "CLAUDE ONLINE · YOUR KEY" : mode === "server" ? "CLAUDE ONLINE · SERVER" : "LOCAL MODE"}
+        </span>
+      </div>
+
+      {apiKey ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono-hud flex-1 text-[0.75rem] text-[var(--j-muted)]">
+            Key saved: {apiKey.slice(0, 10)}…{apiKey.slice(-4)}
+          </span>
+          <HudButton onClick={runTest} disabled={test.state === "testing"}>
+            {test.state === "testing" ? "Testing…" : "Test link"}
+          </HudButton>
+          <HudButton
+            variant="danger"
+            onClick={() => {
+              update({ apiKey: undefined })
+              setTest({ state: "idle" })
+            }}
+          >
+            Remove key
+          </HudButton>
+        </div>
+      ) : (
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void save()
+          }}
+        >
+          <input
+            type="password"
+            className="hud-input"
+            placeholder="Paste your Anthropic API key (sk-ant-…)"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            aria-label="Anthropic API key"
+          />
+          <HudButton variant="solid" type="submit" disabled={!draft.trim()}>
+            Connect
+          </HudButton>
+        </form>
+      )}
+
+      {test.state === "ok" && <p className="font-mono-hud text-[0.7rem] text-[var(--j-green)]">✓ {test.message}</p>}
+      {test.state === "fail" && <p className="font-mono-hud text-[0.7rem] text-[var(--j-amber)]">! {test.message}</p>}
+
+      <p className="font-mono-hud text-[0.65rem] leading-relaxed text-[var(--j-faint)]">
+        {mode === "server"
+          ? "This deployment's server already has a key. You only need your own key on a static deploy such as Netlify Drop."
+          : "Get a key at console.anthropic.com → API Keys (pay as you go; a monthly spend limit there is a good idea). It's saved only in this browser, is sent only to Anthropic, and is never included in backups. Use it only on your own devices."}
+      </p>
+    </div>
   )
 }

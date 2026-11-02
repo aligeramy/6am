@@ -236,7 +236,7 @@ export function localBrain(input: string, data: JarvisData): BrainResult {
   return {
     reply:
       `My neural link is offline, ${a}, so I can't hold a full conversation yet. I can still log anything you tell me. ` +
-      `Try "slept 7 hours" or "spent 20 on lunch". Add an Anthropic API key to give me a full brain.`,
+      `Try "slept 7 hours" or "spent 20 on lunch". Add your Anthropic API key in Settings, under Neural link, to give me a full brain.`,
     actions: [],
   }
 }

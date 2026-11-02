@@ -42,6 +42,17 @@ pnpm dev            # open http://localhost:3000/jarvis
 
 Put them in `.env.local` locally, or in your Vercel project settings.
 
+### Deploy without a server (Netlify Drop)
+
+```bash
+pnpm build:static    # -> jarvis-static.zip (dashboard at "/", no server route)
+```
+
+Drag the zip onto [app.netlify.com/drop](https://app.netlify.com/drop). To give this version Claude, open
+Settings → **Neural link · Claude** and paste your Anthropic API key. The browser then talks to Anthropic directly.
+The key is stored only in that browser, sent only to Anthropic, and left out of backups, so use it only on your own devices,
+and consider setting a monthly spend limit in the Anthropic console.
+
 ### Data
 
 Everything is stored in your browser (`localStorage`). Use Settings → Export backup regularly. **Load sample data** in Settings fills every panel so you can explore. Cloud sync through the existing Supabase setup is the natural next step.
@@ -50,5 +61,7 @@ Everything is stored in your browser (`localStorage`). Use Settings → Export b
 
 - `app/jarvis/`: route, fonts and HUD stylesheet
 - `app/api/jarvis/route.ts`: Claude endpoint (tool use; the browser applies the returned actions)
+- `lib/jarvis/claude.ts`: the shared brain (persona, tools, tool loop), used by the server route and by browser-key mode
+- `scripts/build-static.sh`: static build for drag-and-drop hosting
 - `components/jarvis/`: arc reactor, boot sequence, panels, console, settings
 - `lib/jarvis/`: store, scoring, the offline command parser, voice engine, briefing
