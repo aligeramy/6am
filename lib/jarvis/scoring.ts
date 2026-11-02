@@ -20,6 +20,12 @@ export function series(logs: LogEntry[], metric: string, days = 14) {
   return lastNDays(days).map((date) => ({ date, value: dayValue(logs, metric, date) }))
 }
 
+/** Like series(), but additive metrics show 0 on empty days so charts read as a continuous line. */
+export function chartSeries(logs: LogEntry[], metric: string, days = 14) {
+  const additive = (METRIC_BY_ID[metric]?.aggregate ?? "sum") === "sum"
+  return series(logs, metric, days).map((d) => (additive && d.value === null ? { ...d, value: 0 } : d))
+}
+
 export function weekTotal(logs: LogEntry[], metric: string) {
   return series(logs, metric, 7).reduce((a, d) => a + (d.value ?? 0), 0)
 }

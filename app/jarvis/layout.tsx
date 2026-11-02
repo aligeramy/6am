@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next"
-import { Orbitron, Rajdhani, Share_Tech_Mono } from "next/font/google"
+import { Exo_2, Orbitron, Share_Tech_Mono } from "next/font/google"
 import "./jarvis.css"
 
 const display = Orbitron({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-jarvis-display" })
-const body = Rajdhani({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-jarvis-body" })
+const body = Exo_2({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700"], variable: "--font-jarvis-body" })
 const mono = Share_Tech_Mono({ subsets: ["latin"], weight: "400", variable: "--font-jarvis-mono" })
 
 export const metadata: Metadata = {

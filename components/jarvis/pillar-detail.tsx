@@ -1,21 +1,20 @@
 "use client"
 
 import { format, parseISO } from "date-fns"
-import { Check, Trash2, X } from "lucide-react"
+import { Check, Trash2 } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { daysUntil, lastNDays, prettyDate, todayKey } from "@/lib/jarvis/dates"
 import { METRIC_BY_ID, PILLAR_BY_ID, PILLARS, metricsFor } from "@/lib/jarvis/pillars"
-import { formatMinutes, formatMoney, habitStreak, monthFinance, series, spendBurn, type Scores } from "@/lib/jarvis/scoring"
+import { chartSeries, formatMinutes, formatMoney, habitStreak, monthFinance, spendBurn, type Scores } from "@/lib/jarvis/scoring"
 import { useJarvis } from "@/lib/jarvis/store"
 import type { JournalKind, MissionHorizon, PillarId, ProjectStatus } from "@/lib/jarvis/types"
 import { cn } from "@/lib/utils"
-import { Empty, HudButton, Ring, Sparkline, Stat } from "./hud"
-import { InlineAdd, LogChip } from "./pillar-panels"
-import { Modal, useQuickLog } from "./quick-log"
+import { Empty, HudButton, InlineAdd, LogChip, Ring, Sparkline, Stat } from "./hud"
+import { Modal, ModalHeader, useQuickLog } from "./quick-log"
 
 function Card({ title, right, children, className }: { title: string; right?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <div className={cn("border border-[var(--j-line)] bg-[rgba(2,18,26,0.5)] p-3", className)}>
+    <div className={cn("inset-panel p-4", className)}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="hud-label">{title}</span>
         {right}
@@ -36,7 +35,7 @@ const fmtMetric = (metric: string, v: number) => {
 function MetricChart({ metric }: { metric: string }) {
   const logs = useJarvis((s) => s.logs)
   const targets = useJarvis((s) => s.settings.targets) as unknown as Record<string, number>
-  const data = series(logs, metric, 30)
+  const data = chartSeries(logs, metric, 30)
   const def = METRIC_BY_ID[metric]
   const lastVal = [...data].reverse().find((d) => d.value !== null)?.value ?? null
   const target = metric === "sleep" || metric === "water" ? targets[metric] : ["reading", "meditation", "learning"].includes(metric) ? targets[metric] : undefined
@@ -433,7 +432,7 @@ function MissionsBody() {
         {list.map((m) => {
           const d = m.due ? daysUntil(m.due) : null
           return (
-            <div key={m.id} className="border border-[var(--j-line)] bg-[rgba(2,18,26,0.5)] p-3">
+            <div key={m.id} className="inset-panel p-4">
               <div className="flex items-start gap-3">
                 <Ring value={m.progress} size={46} label={`${m.progress}%`} />
                 <div className="min-w-0 flex-1">
@@ -555,19 +554,11 @@ export function PillarDetail({ scores }: { scores: Scores }) {
   const close = () => useJarvis.getState().setUI({ activePillar: null })
   const def = active ? PILLAR_BY_ID[active] : null
   return (
-    <Modal open={!!active} onClose={close} wide>
+    <Modal open={!!active} onClose={close} variant="sheet">
       {def && active && (
         <>
-          <div className="flex items-center gap-3 border-b border-[var(--j-line)] px-4 py-3">
-            <Ring value={scores[active]} size={44} />
-            <div className="min-w-0 flex-1">
-              <ModalHeaderInline index={def.index} name={def.name} tagline={def.tagline} />
-            </div>
-            <HudButton variant="ghost" onClick={close} aria-label="Close" className="px-1.5">
-              <X className="h-4 w-4" />
-            </HudButton>
-          </div>
-          <div className="p-3 sm:p-4">
+          <ModalHeader title={def.name.toUpperCase()} sub={def.tagline} onClose={close} lead={<Ring value={scores[active]} size={40} />} />
+          <div className="p-4 sm:p-5">
             {active === "health" && <MetricsBody pillar="health" />}
             {active === "wealth" && <WealthBody />}
             {active === "career" && <CareerBody />}
@@ -579,17 +570,5 @@ export function PillarDetail({ scores }: { scores: Scores }) {
         </>
       )}
     </Modal>
-  )
-}
-
-function ModalHeaderInline({ index, name, tagline }: { index: string; name: string; tagline: string }) {
-  return (
-    <>
-      <div className="font-hud text-glow text-base font-bold uppercase tracking-[0.3em] text-[var(--j-ice)]">
-        <span className="font-mono-hud mr-2 text-xs text-[var(--j-faint)]">{index} //</span>
-        {name}
-      </div>
-      <div className="font-mono-hud text-[0.65rem] uppercase tracking-[0.25em] text-[var(--j-faint)]">{tagline}</div>
-    </>
   )
 }

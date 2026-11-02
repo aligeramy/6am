@@ -176,8 +176,13 @@ export function ArcReactor({
         <g className="j-spin" style={{ ["--dur" as string]: active ? "6s" : "28s" }}>
           {/* invisible full circle keeps the rotation centred */}
           <circle r={139} fill="none" />
+          {/* Layered strokes fake the glow; a blur filter here would re-render every frame while spinning. */}
           {[0, 120, 240].map((a) => (
-            <path key={a} d={arc(136, a + 8, a + 92)} fill="none" stroke="var(--j-cyan)" strokeWidth={2.2} opacity={0.85} filter="url(#glow)" />
+            <g key={a}>
+              <path d={arc(136, a + 8, a + 92)} fill="none" stroke="var(--j-cyan)" strokeWidth={8} opacity={0.08} strokeLinecap="round" />
+              <path d={arc(136, a + 8, a + 92)} fill="none" stroke="var(--j-cyan)" strokeWidth={4} opacity={0.18} strokeLinecap="round" />
+              <path d={arc(136, a + 8, a + 92)} fill="none" stroke="var(--j-cyan)" strokeWidth={2} opacity={0.95} strokeLinecap="round" />
+            </g>
           ))}
           {[60, 180, 300].map((a) => (
             <circle key={a} cx={polar(136, a).x} cy={polar(136, a).y} r={2.2} fill="var(--j-ice)" />
@@ -196,7 +201,6 @@ export function ArcReactor({
               initial={{ opacity: 0 }}
               animate={{ opacity: powered ? glow + (i % 2) * 0.12 : 0.05 }}
               transition={{ duration: active ? 0.12 : 0.8, delay: powered && !active ? 0.9 + i * 0.05 : 0 }}
-              filter="url(#glow)"
             />
           ))}
         </g>

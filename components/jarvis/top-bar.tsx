@@ -1,17 +1,18 @@
 "use client"
 
 import { format } from "date-fns"
-import { Settings2, Sun, Volume2, VolumeX, Radio } from "lucide-react"
+import { AnimatePresence, motion } from "framer-motion"
+import { Radio, Settings2, Sun, Volume2, VolumeX } from "lucide-react"
 import { useEffect, useState } from "react"
 import type { VoiceState } from "@/lib/jarvis/voice"
-import { Dot, HudButton } from "./hud"
+import { Dot, IconButton } from "./hud"
 
 const VOICE_LABEL: Record<VoiceState, string> = {
-  off: "STANDBY",
-  wake: "ARMED",
-  command: "LISTENING",
-  thinking: "PROCESSING",
-  speaking: "SPEAKING",
+  off: "",
+  wake: "Listening for “Jarvis”",
+  command: "Listening",
+  thinking: "Thinking",
+  speaking: "Speaking",
 }
 
 export function TopBar({
@@ -19,7 +20,6 @@ export function TopBar({
   voiceState,
   wakeWord,
   voiceEnabled,
-  address,
   onToggleVoice,
   onToggleWake,
   onBriefing,
@@ -29,7 +29,6 @@ export function TopBar({
   voiceState: VoiceState
   wakeWord: boolean
   voiceEnabled: boolean
-  address: string
   onToggleVoice: () => void
   onToggleWake: () => void
   onBriefing: () => void
@@ -41,59 +40,48 @@ export function TopBar({
     return () => clearInterval(t)
   }, [])
 
+  const status = VOICE_LABEL[voiceState] || (online === null ? "Connecting" : online ? "Claude online" : "Local mode")
+  const tone = voiceState !== "off" && voiceState !== "wake" ? "var(--j-cyan)" : online ? "var(--j-green)" : online === null ? "var(--j-faint)" : "var(--j-amber)"
+
   return (
-    <header className="relative z-20 flex items-center justify-between gap-3 border-b border-[var(--j-line)] bg-[rgba(1,10,16,0.6)] px-3 py-2 backdrop-blur-md sm:px-5">
+    <header className="relative z-20 flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
         <svg viewBox="-12 -12 24 24" className="h-7 w-7 shrink-0" aria-hidden>
-          <circle r="10" fill="none" stroke="var(--j-cyan)" strokeWidth="1" opacity="0.6" />
-          <g className="j-spin" style={{ ["--dur" as string]: "8s" }}>
-            <circle r="7" fill="none" stroke="var(--j-cyan)" strokeWidth="1.6" strokeDasharray="8 3" />
+          <circle r="10.5" fill="none" stroke="var(--j-cyan)" strokeWidth="0.8" opacity="0.5" />
+          <g className="j-spin" style={{ ["--dur" as string]: "10s" }}>
+            <circle r="7.2" fill="none" stroke="var(--j-cyan)" strokeWidth="1.5" strokeDasharray="7 3.3" strokeLinecap="round" />
           </g>
-          <circle r="3.2" fill="var(--j-ice)" style={{ filter: "drop-shadow(0 0 4px #29e6ff)" }} />
+          <circle r="3.4" fill="#d9fbff" style={{ filter: "drop-shadow(0 0 4px #29e6ff)" }} />
         </svg>
-        <div className="min-w-0">
-          <div className="font-hud text-glow text-[0.8rem] font-bold tracking-[0.35em] text-[var(--j-ice)] sm:text-sm">J.A.R.V.I.S.</div>
-          <div className="font-mono-hud hidden text-[0.55rem] uppercase tracking-[0.3em] text-[var(--j-faint)] sm:block">
-            Life operating system · {address}
-          </div>
-        </div>
+        <span className="font-hud text-glow-soft text-[0.95rem] font-semibold tracking-[0.42em] text-[var(--j-ice)]">JARVIS</span>
       </div>
 
-      <div className="font-mono-hud hidden items-center gap-4 text-[0.6rem] uppercase tracking-[0.2em] text-[var(--j-muted)] lg:flex">
-        <span className="flex items-center gap-1.5">
-          <Dot tone={online ? "var(--j-green)" : online === null ? "var(--j-faint)" : "var(--j-amber)"} pulse={online === null} />
-          Neural link: <span className="text-[var(--j-ice)]">{online === null ? "probing" : online ? "Claude online" : "local mode"}</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Dot tone={voiceState === "off" ? "var(--j-faint)" : "var(--j-cyan)"} pulse={voiceState !== "off"} />
-          Voice: <span className="text-[var(--j-ice)]">{VOICE_LABEL[voiceState]}</span>
-        </span>
+      <div className="hidden items-center gap-2 rounded-full border border-[var(--j-line)] bg-[rgba(2,14,20,0.5)] px-3.5 py-1.5 text-[0.78rem] text-[var(--j-muted)] backdrop-blur md:flex">
+        <Dot tone={tone} pulse={voiceState !== "off" || online === null} />
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span key={status} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.18 }}>
+            {status}
+          </motion.span>
+        </AnimatePresence>
       </div>
 
-      <div className="flex items-center gap-1.5 sm:gap-3">
-        <div className="mr-1 hidden text-right sm:block">
-          <div className="font-hud text-sm font-semibold tabular-nums text-[var(--j-ice)] text-glow-soft">{format(now, "HH:mm:ss")}</div>
-          <div className="font-mono-hud text-[0.55rem] uppercase tracking-[0.25em] text-[var(--j-faint)]">{format(now, "EEE dd MMM yyyy")}</div>
+      <div className="flex items-center gap-1 sm:gap-2">
+        <div className="mr-2 hidden text-right lg:block">
+          <div className="font-hud tabular text-[0.95rem] font-medium text-[var(--j-ice)]">{format(now, "HH:mm")}</div>
+          <div className="text-[0.68rem] text-[var(--j-faint)]">{format(now, "EEE d MMM")}</div>
         </div>
-        <HudButton
-          variant="ghost"
-          onClick={onToggleWake}
-          aria-pressed={wakeWord}
-          title={wakeWord ? "Wake word armed: say “Jarvis”" : "Arm “Hey Jarvis” wake word"}
-          className={wakeWord ? "text-[var(--j-cyan)]" : "text-[var(--j-faint)]"}
-        >
-          <Radio className="h-4 w-4" />
-        </HudButton>
-        <HudButton variant="ghost" onClick={onToggleVoice} aria-pressed={voiceEnabled} title={voiceEnabled ? "Mute JARVIS" : "Unmute JARVIS"}>
-          {voiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-[var(--j-faint)]" />}
-        </HudButton>
-        <HudButton onClick={onBriefing} title="Morning briefing">
-          <Sun className="h-3.5 w-3.5" />
-          <span className="hidden md:inline">Briefing</span>
-        </HudButton>
-        <HudButton variant="ghost" onClick={onSettings} title="Settings" aria-label="Settings">
-          <Settings2 className="h-4 w-4" />
-        </HudButton>
+        <IconButton onClick={onToggleWake} aria-pressed={wakeWord} title={wakeWord ? "Wake word on: say “Jarvis”" : "Turn on “Hey Jarvis”"}>
+          <Radio className="h-[18px] w-[18px]" />
+        </IconButton>
+        <IconButton onClick={onToggleVoice} aria-pressed={voiceEnabled} title={voiceEnabled ? "Mute JARVIS" : "Unmute JARVIS"}>
+          {voiceEnabled ? <Volume2 className="h-[18px] w-[18px]" /> : <VolumeX className="h-[18px] w-[18px]" />}
+        </IconButton>
+        <IconButton onClick={onBriefing} title="Morning briefing" aria-label="Morning briefing">
+          <Sun className="h-[18px] w-[18px]" />
+        </IconButton>
+        <IconButton onClick={onSettings} title="Settings" aria-label="Settings">
+          <Settings2 className="h-[18px] w-[18px]" />
+        </IconButton>
       </div>
     </header>
   )

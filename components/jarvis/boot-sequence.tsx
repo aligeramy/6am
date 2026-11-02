@@ -90,10 +90,10 @@ export function BootSequence({
   useEffect(() => {
     if (phase !== "boot") return
     if (shown >= lines.length) {
-      const t = setTimeout(toWelcome, 500)
+      const t = setTimeout(toWelcome, 350)
       return () => clearTimeout(t)
     }
-    const t = setTimeout(() => setShown((n) => n + 1), shown === 0 ? 450 : 240 + Math.random() * 160)
+    const t = setTimeout(() => setShown((n) => n + 1), shown === 0 ? 300 : 110 + Math.random() * 70)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, shown, lines.length])
@@ -106,7 +106,7 @@ export function BootSequence({
 
   useEffect(() => {
     if (phase !== "welcome") return
-    const t = setTimeout(finish, animated ? 2300 : 1100)
+    const t = setTimeout(finish, animated ? 1700 : 1000)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])
@@ -127,8 +127,8 @@ export function BootSequence({
   return (
     <motion.div
       className="fixed inset-0 z-40 flex items-center justify-center overflow-hidden px-4"
-      exit={{ opacity: 0, scale: 1.08, filter: "blur(6px)" }}
-      transition={{ duration: 0.7 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.45 }}
     >
       {/* Boot log */}
       {phase !== "gate" && (
@@ -163,9 +163,10 @@ export function BootSequence({
       )}
 
       <div className="relative flex w-full max-w-[420px] flex-col items-center">
-        <div className="w-[min(78vw,360px)]">
+        {/* Shares a layoutId with the dashboard's reactor, so it glides into place when the boot ends. */}
+        <motion.div layoutId="reactor" className="w-[min(78vw,360px)]">
           <ArcReactor scores={phase === "gate" ? emptyScores : scores} life={phase === "gate" ? null : life} powered={phase !== "gate"} />
-        </div>
+        </motion.div>
 
         <AnimatePresence mode="wait">
           {phase === "gate" && (
