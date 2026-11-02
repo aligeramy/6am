@@ -6,12 +6,17 @@ import { useEffect, useState } from "react"
 import { create } from "zustand"
 import { applyAction } from "@/lib/jarvis/actions"
 import { todayKey } from "@/lib/jarvis/dates"
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, METRIC_BY_ID } from "@/lib/jarvis/pillars"
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, METRIC_BY_ID, PILLAR_BY_ID, metricsFor } from "@/lib/jarvis/pillars"
 import { useJarvis } from "@/lib/jarvis/store"
+import type { PillarId } from "@/lib/jarvis/types"
 import { cn } from "@/lib/utils"
-import { Corners, HudButton } from "./hud"
+import { HudButton, IconButton } from "./hud"
 
-type Target = { type: "metric"; metric: string } | { type: "money"; kind: "expense" | "income" } | null
+type Target =
+  | { type: "metric"; metric: string }
+  | { type: "money"; kind: "expense" | "income" }
+  | { type: "pillar"; pillar: PillarId }
+  | null
 
 export const useQuickLog = create<{
   target: Target
@@ -42,38 +47,60 @@ const PRESETS: Record<string, number[]> = {
   reflection: [5, 10, 15, 30],
 }
 
-export function Modal({ open, onClose, children, wide }: { open: boolean; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
+const SPRING = { type: "spring", damping: 32, stiffness: 320, mass: 0.9 } as const
+
+/** Dialog (centered) or sheet (slides from the right on desktop, from the bottom on phones). */
+export function Modal({
+  open,
+  onClose,
+  children,
+  variant = "dialog",
+}: {
+  open: boolean
+  onClose: () => void
+  children: React.ReactNode
+  variant?: "dialog" | "sheet"
+}) {
+  const [desktop, setDesktop] = useState(true)
   useEffect(() => {
     if (!open) return
+    setDesktop(window.matchMedia("(min-width: 640px)").matches)
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose()
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [open, onClose])
+
+  const sheet = variant === "sheet"
+  const from = sheet ? (desktop ? { x: "100%" } : { y: "100%" }) : desktop ? { opacity: 0, scale: 0.96, y: 12 } : { y: "100%" }
+  const to = sheet ? { x: 0, y: 0 } : { opacity: 1, scale: 1, y: 0 }
+
   return (
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(0,6,10,0.7)] backdrop-blur-sm sm:items-center sm:p-4"
+          className={cn(
+            "fixed inset-0 z-50 flex bg-[rgba(0,5,9,0.55)] backdrop-blur-[3px]",
+            sheet ? "items-end sm:items-stretch sm:justify-end" : "items-end justify-center sm:items-center sm:p-6",
+          )}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          transition={{ duration: 0.25 }}
           onMouseDown={(e) => e.target === e.currentTarget && onClose()}
         >
           <motion.div
             role="dialog"
             aria-modal="true"
-            initial={{ opacity: 0, scale: 0.94, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 10 }}
-            transition={{ type: "spring", damping: 26, stiffness: 300 }}
+            initial={from}
+            animate={to}
+            exit={from}
+            transition={SPRING}
             className={cn(
-              "hud-panel box-glow relative max-h-[92dvh] w-full overflow-hidden",
-              wide ? "sm:max-w-5xl" : "sm:max-w-md",
+              "glass relative w-full overflow-hidden !rounded-b-none bg-[rgba(3,14,21,0.92)] sm:!rounded-b-[20px]",
+              sheet ? "max-h-[92dvh] sm:max-h-none sm:h-full sm:w-[min(760px,92vw)] sm:!rounded-r-none" : "max-h-[92dvh] sm:max-w-md",
             )}
           >
-            <Corners />
-            <div className="hud-scan" />
-            <div className="hud-scroll relative z-[1] max-h-[92dvh] overflow-y-auto">{children}</div>
+            <div className={cn("hud-scroll relative z-[1] overflow-y-auto", sheet ? "max-h-[92dvh] sm:h-full sm:max-h-none" : "max-h-[92dvh]")}>{children}</div>
           </motion.div>
         </motion.div>
       )}
@@ -81,16 +108,48 @@ export function Modal({ open, onClose, children, wide }: { open: boolean; onClos
   )
 }
 
-export function ModalHeader({ title, sub, onClose }: { title: string; sub?: string; onClose: () => void }) {
+export function ModalHeader({ title, sub, onClose, lead }: { title: string; sub?: string; onClose: () => void; lead?: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-[var(--j-line)] px-4 py-3">
-      <div>
-        <div className="font-hud text-glow text-sm font-bold uppercase tracking-[0.25em] text-[var(--j-ice)]">{title}</div>
-        {sub && <div className="font-mono-hud mt-0.5 text-[0.65rem] uppercase tracking-[0.2em] text-[var(--j-faint)]">{sub}</div>}
+    <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-[var(--j-line)] bg-[rgba(3,14,21,0.85)] px-5 py-4 backdrop-blur-xl">
+      {lead}
+      <div className="min-w-0 flex-1">
+        <div className="font-hud text-glow-soft truncate text-[0.95rem] font-semibold tracking-[0.18em] text-[var(--j-ice)]">{title}</div>
+        {sub && <div className="mt-0.5 truncate text-[0.75rem] text-[var(--j-muted)]">{sub}</div>}
       </div>
-      <HudButton variant="ghost" onClick={onClose} aria-label="Close" className="px-1.5">
+      <IconButton onClick={onClose} aria-label="Close">
         <X className="h-4 w-4" />
-      </HudButton>
+      </IconButton>
+    </div>
+  )
+}
+
+function Chips<T extends string | number>({ items, value, onPick, render }: { items: T[]; value: T; onPick: (v: T) => void; render?: (v: T) => string }) {
+  return (
+    <div className="flex flex-wrap justify-center gap-1.5">
+      {items.map((p) => (
+        <button
+          key={String(p)}
+          type="button"
+          onClick={() => onPick(p)}
+          className={cn(
+            "rounded-full border px-3 py-1 text-[0.8rem] capitalize transition-all duration-200",
+            value === p
+              ? "border-[rgba(41,230,255,0.6)] bg-[rgba(41,230,255,0.16)] text-white shadow-[0_0_14px_-4px_rgba(41,230,255,0.8)]"
+              : "border-[var(--j-line)] text-[var(--j-muted)] hover:border-[var(--j-line-strong)] hover:text-white",
+          )}
+        >
+          {render ? render(p) : String(p)}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function DateNote({ note, setNote, date, setDate }: { note: string; setNote: (v: string) => void; date: string; setDate: (v: string) => void }) {
+  return (
+    <div className="grid grid-cols-[1fr_auto] gap-2">
+      <input className="hud-input" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} aria-label="Note" />
+      <input className="hud-input w-[9.5rem]" type="date" value={date} max={todayKey()} onChange={(e) => setDate(e.target.value)} aria-label="Date" />
     </div>
   )
 }
@@ -99,47 +158,32 @@ function MetricForm({ metric, onDone }: { metric: string; onDone: (msg: string) 
   const def = METRIC_BY_ID[metric]
   const weightUnit = useJarvis((s) => s.settings.weightUnit)
   const lastWeight = useJarvis((s) => [...s.logs].reverse().find((l) => l.metric === "weight")?.value)
-  const [value, setValue] = useState<number>(metric === "weight" ? lastWeight ?? 170 : def.quick ?? def.min)
+  const [value, setValue] = useState<number>(metric === "weight" ? (lastWeight ?? 170) : (def.quick ?? def.min))
   const [note, setNote] = useState("")
   const [date, setDate] = useState(todayKey())
   const isScale = def.unit === "/10"
   const unit = metric === "weight" ? weightUnit : def.unit
-
-  const submit = () => {
-    const r = applyAction({ type: "log_metric", metric, value, note: note || undefined, date })
-    onDone(r.label)
-  }
+  const step = (dir: 1 | -1) => setValue((v) => Math.min(def.max, Math.max(def.min, +(v + dir * def.step).toFixed(2))))
 
   return (
     <form
-      className="space-y-4 p-4"
+      className="space-y-5 p-5"
       onSubmit={(e) => {
         e.preventDefault()
-        submit()
+        onDone(applyAction({ type: "log_metric", metric, value, note: note || undefined, date }).label)
       }}
     >
       {isScale ? (
-        <div className="grid grid-cols-5 gap-1.5">
-          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setValue(n)}
-              className={cn(
-                "font-hud border py-2 text-sm transition",
-                value === n ? "border-[var(--j-cyan)] bg-[rgba(41,230,255,0.2)] text-white shadow-[0_0_10px_rgba(41,230,255,0.4)]" : "border-[var(--j-line)] text-[var(--j-muted)] hover:text-white",
-              )}
-            >
-              {n}
-            </button>
-          ))}
+        <div className="space-y-3 text-center">
+          <div className="font-hud text-glow text-5xl font-bold text-white">{value}</div>
+          <Chips items={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]} value={value} onPick={setValue} />
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-center gap-3">
-            <HudButton onClick={() => setValue((v) => Math.max(def.min, +(v - def.step).toFixed(2)))} aria-label="Decrease">
+          <div className="flex items-center justify-center gap-4">
+            <button type="button" className="icon-btn border border-[var(--j-line)]" onClick={() => step(-1)} aria-label="Decrease">
               <Minus className="h-4 w-4" />
-            </HudButton>
+            </button>
             <div className="text-center">
               <input
                 type="number"
@@ -148,40 +192,22 @@ function MetricForm({ metric, onDone }: { metric: string; onDone: (msg: string) 
                 max={def.max}
                 value={value}
                 onChange={(e) => setValue(parseFloat(e.target.value) || 0)}
-                className="font-hud text-glow w-32 bg-transparent text-center text-4xl font-bold text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                className="font-hud text-glow w-36 bg-transparent text-center text-5xl font-bold text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                 aria-label={`${def.label} value`}
               />
-              <div className="hud-label">{unit}</div>
+              <div className="hud-label mt-1">{unit}</div>
             </div>
-            <HudButton onClick={() => setValue((v) => Math.min(def.max, +(v + def.step).toFixed(2)))} aria-label="Increase">
+            <button type="button" className="icon-btn border border-[var(--j-line)]" onClick={() => step(1)} aria-label="Increase">
               <Plus className="h-4 w-4" />
-            </HudButton>
+            </button>
           </div>
           {PRESETS[metric] && (
-            <div className="flex flex-wrap justify-center gap-1.5">
-              {PRESETS[metric].map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setValue(p)}
-                  className={cn(
-                    "font-mono-hud border px-2.5 py-1 text-xs transition",
-                    value === p ? "border-[var(--j-cyan)] text-white" : "border-[var(--j-line)] text-[var(--j-muted)] hover:text-white",
-                  )}
-                >
-                  {p}
-                  {def.unit === "min" ? "m" : def.unit === "h" ? "h" : ""}
-                </button>
-              ))}
-            </div>
+            <Chips items={PRESETS[metric]} value={value} onPick={setValue} render={(p) => `${p}${def.unit === "min" ? "m" : def.unit === "h" ? "h" : ""}`} />
           )}
         </>
       )}
-      <div className="grid grid-cols-[1fr_auto] gap-2">
-        <input className="hud-input" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} aria-label="Note" />
-        <input className="hud-input w-[9.5rem]" type="date" value={date} max={todayKey()} onChange={(e) => setDate(e.target.value)} aria-label="Date" />
-      </div>
-      <HudButton variant="solid" type="submit" className="w-full py-2.5">
+      <DateNote note={note} setNote={setNote} date={date} setDate={setDate} />
+      <HudButton variant="solid" type="submit" className="w-full py-3">
         Log {def.label}
       </HudButton>
     </form>
@@ -199,16 +225,15 @@ function MoneyForm({ initialKind, onDone }: { initialKind: "expense" | "income";
 
   return (
     <form
-      className="space-y-4 p-4"
+      className="space-y-5 p-5"
       onSubmit={(e) => {
         e.preventDefault()
         const n = parseFloat(amount)
         if (!n) return
-        const r = applyAction({ type: "add_transaction", kind, amount: n, category, note: note || undefined, date })
-        onDone(r.label)
+        onDone(applyAction({ type: "add_transaction", kind, amount: n, category, note: note || undefined, date }).label)
       }}
     >
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="mx-auto grid w-56 grid-cols-2 rounded-full border border-[var(--j-line)] p-1">
         {(["expense", "income"] as const).map((k) => (
           <button
             key={k}
@@ -217,67 +242,114 @@ function MoneyForm({ initialKind, onDone }: { initialKind: "expense" | "income";
               setKind(k)
               setCategory(k === "expense" ? "food" : "salary")
             }}
-            className={cn(
-              "font-hud border py-2 text-[0.65rem] uppercase tracking-[0.25em] transition",
-              kind === k ? "border-[var(--j-cyan)] bg-[rgba(41,230,255,0.15)] text-white" : "border-[var(--j-line)] text-[var(--j-muted)]",
-            )}
+            className="relative rounded-full py-1.5 text-[0.8rem] font-semibold capitalize"
           >
-            {k}
+            {kind === k && <motion.span layoutId="money-kind" className="absolute inset-0 rounded-full bg-[rgba(41,230,255,0.18)]" transition={SPRING} />}
+            <span className={cn("relative", kind === k ? "text-white" : "text-[var(--j-muted)]")}>{k}</span>
           </button>
         ))}
       </div>
       <div className="flex items-baseline justify-center gap-1">
-        <span className="font-hud text-2xl text-[var(--j-muted)]">{currency}</span>
+        <span className="font-hud text-3xl text-[var(--j-muted)]">{currency}</span>
         <input
           autoFocus
           inputMode="decimal"
           value={amount}
           onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
           placeholder="0"
-          className="font-hud text-glow w-44 bg-transparent text-center text-4xl font-bold text-white outline-none placeholder:text-[var(--j-faint)]"
+          className="font-hud text-glow w-48 bg-transparent text-center text-5xl font-bold text-white outline-none placeholder:text-[var(--j-faint)]"
           aria-label="Amount"
         />
       </div>
-      <div className="flex flex-wrap gap-1.5">
-        {cats.map((c) => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => setCategory(c)}
-            className={cn(
-              "font-mono-hud border px-2 py-1 text-[0.68rem] capitalize transition",
-              category === c ? "border-[var(--j-cyan)] text-white" : "border-[var(--j-line)] text-[var(--j-muted)] hover:text-white",
-            )}
-          >
-            {c}
-          </button>
-        ))}
-      </div>
-      <div className="grid grid-cols-[1fr_auto] gap-2">
-        <input className="hud-input" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} aria-label="Note" />
-        <input className="hud-input w-[9.5rem]" type="date" value={date} max={todayKey()} onChange={(e) => setDate(e.target.value)} aria-label="Date" />
-      </div>
-      <HudButton variant="solid" type="submit" className="w-full py-2.5" disabled={!parseFloat(amount)}>
+      <Chips items={cats} value={category} onPick={setCategory} />
+      <DateNote note={note} setNote={setNote} date={date} setDate={setDate} />
+      <HudButton variant="solid" type="submit" className="w-full py-3" disabled={!parseFloat(amount)}>
         Record {kind}
       </HudButton>
     </form>
   )
 }
 
+function GratitudeForm({ onDone }: { onDone: (msg: string) => void }) {
+  const [text, setText] = useState("")
+  return (
+    <form
+      className="space-y-4 p-5"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (!text.trim()) return
+        onDone(applyAction({ type: "add_journal_entry", kind: "gratitude", text }).label)
+      }}
+    >
+      <textarea
+        autoFocus
+        className="hud-input min-h-[110px] text-base"
+        placeholder="Today I'm grateful for…"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        aria-label="Gratitude"
+      />
+      <HudButton variant="solid" type="submit" className="w-full py-3" disabled={!text.trim()}>
+        Save gratitude
+      </HudButton>
+    </form>
+  )
+}
+
+/** Which forms a pillar's "+" offers. */
+const pillarTabs = (pillar: PillarId): { id: string; label: string }[] => {
+  if (pillar === "wealth")
+    return [
+      { id: "money:expense", label: "Expense" },
+      { id: "money:income", label: "Income" },
+    ]
+  const metrics = metricsFor(pillar).map((m) => ({ id: m.id, label: m.label }))
+  return pillar === "spirit" ? [{ id: "gratitude", label: "Gratitude" }, ...metrics] : metrics
+}
+
 export function QuickLogModal() {
   const { target, close, flash } = useQuickLog()
+  const [tab, setTab] = useState<string>("")
   const done = (msg: string) => {
     close()
     flash(msg)
   }
+
+  const tabs = target?.type === "pillar" ? pillarTabs(target.pillar) : []
+  useEffect(() => {
+    if (target?.type === "pillar") setTab(pillarTabs(target.pillar)[0]?.id ?? "")
+  }, [target])
+
+  const active = target?.type === "pillar" ? tab : target?.type === "metric" ? target.metric : target ? `money:${target.kind}` : ""
   const title =
-    target?.type === "metric" ? `Log ${METRIC_BY_ID[target.metric]?.label}` : target?.type === "money" ? "Money transfer" : ""
+    target?.type === "pillar" ? `Log ${PILLAR_BY_ID[target.pillar].name}` : target?.type === "metric" ? `Log ${METRIC_BY_ID[target.metric]?.label}` : "Money"
+
   return (
     <Modal open={!!target} onClose={close}>
       {target && (
         <>
-          <ModalHeader title={title} sub="Manual telemetry entry" onClose={close} />
-          {target.type === "metric" ? <MetricForm metric={target.metric} onDone={done} /> : <MoneyForm initialKind={target.kind} onDone={done} />}
+          <ModalHeader title={title.toUpperCase()} onClose={close} />
+          {tabs.length > 1 && (
+            <div className="no-scrollbar flex gap-1 overflow-x-auto px-5 pt-4">
+              {tabs.map((t) => (
+                <button key={t.id} type="button" onClick={() => setTab(t.id)} className="relative shrink-0 rounded-full px-3 py-1.5 text-[0.8rem] font-medium">
+                  {active === t.id && <motion.span layoutId="log-tab" className="absolute inset-0 rounded-full bg-[rgba(41,230,255,0.14)]" transition={SPRING} />}
+                  <span className={cn("relative", active === t.id ? "text-white" : "text-[var(--j-muted)]")}>{t.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div key={active} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
+              {active.startsWith("money:") ? (
+                <MoneyForm initialKind={active === "money:income" ? "income" : "expense"} onDone={done} />
+              ) : active === "gratitude" ? (
+                <GratitudeForm onDone={done} />
+              ) : active && METRIC_BY_ID[active] ? (
+                <MetricForm metric={active} onDone={done} />
+              ) : null}
+            </motion.div>
+          </AnimatePresence>
         </>
       )}
     </Modal>
@@ -287,17 +359,21 @@ export function QuickLogModal() {
 export function Toast() {
   const toast = useQuickLog((s) => s.toast)
   return (
-    <AnimatePresence>
-      {toast && (
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -12 }}
-          className="font-hud box-glow fixed left-1/2 top-16 z-[70] -translate-x-1/2 bg-[rgba(2,20,28,0.95)] px-4 py-2 text-[0.65rem] uppercase tracking-[0.25em] text-[var(--j-ice)]"
-        >
-          ✓ {toast}
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <div className="pointer-events-none fixed inset-x-0 top-16 z-[70] flex justify-center">
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -14, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            transition={SPRING}
+            className="rounded-full border border-[var(--j-line-strong)] bg-[rgba(3,18,26,0.92)] px-4 py-2 text-[0.8rem] font-medium text-[var(--j-ice)] shadow-[0_10px_40px_-10px_rgba(41,230,255,0.5)] backdrop-blur-xl"
+          >
+            <span className="mr-1.5 text-[var(--j-cyan)]">✓</span>
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }

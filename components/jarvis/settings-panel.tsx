@@ -14,7 +14,7 @@ import { Modal, ModalHeader } from "./quick-log"
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="space-y-3 border-b border-[var(--j-line)] px-4 py-4">
+    <section className="space-y-3.5 border-b border-[var(--j-line)] px-5 py-5">
       <h3 className="font-hud text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-[var(--j-cyan)]">{title}</h3>
       {children}
     </section>
@@ -26,7 +26,7 @@ function Row({ label, hint, children }: { label: string; hint?: ReactNode; child
     <div className="flex items-center justify-between gap-4">
       <div className="min-w-0">
         <div className="text-[0.85rem] text-[var(--j-text)]">{label}</div>
-        {hint && <div className="font-mono-hud text-[0.65rem] text-[var(--j-faint)]">{hint}</div>}
+        {hint && <div className="text-[0.75rem] text-[var(--j-faint)]">{hint}</div>}
       </div>
       {children}
     </div>
@@ -97,8 +97,8 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
   const current = voice.pickVoice(st.voiceURI)
 
   return (
-    <Modal open={open} onClose={close}>
-      <ModalHeader title="System configuration" sub="Preferences are stored in this browser" onClose={close} />
+    <Modal open={open} onClose={close} variant="sheet">
+      <ModalHeader title="SETTINGS" sub="Saved in this browser" onClose={close} />
 
       <Section title="Identity">
         <label className="block space-y-1">
@@ -126,15 +126,15 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
                   saveAddress(p)
                 }}
                 className={cn(
-                  "font-mono-hud border px-2 py-0.5 text-[0.68rem] transition",
-                  st.address === p ? "border-[var(--j-cyan)] text-white" : "border-[var(--j-line)] text-[var(--j-muted)] hover:text-white",
+                  "rounded-full border px-3 py-1 text-[0.78rem] transition-all duration-200",
+                  st.address === p ? "border-[rgba(41,230,255,0.6)] bg-[rgba(41,230,255,0.14)] text-white" : "border-[var(--j-line)] text-[var(--j-muted)] hover:text-white",
                 )}
               >
                 {p}
               </button>
             ))}
           </div>
-          <div className="font-mono-hud text-[0.68rem] text-[var(--j-muted)]">
+          <div className="text-[0.78rem] text-[var(--j-muted)]">
             Preview: “Good morning, {st.address}.” You can also just say “Jarvis, call me Boss.”
           </div>
         </div>
@@ -149,7 +149,7 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
           <Toggle checked={st.briefingEnabled} onChange={(v) => update({ briefingEnabled: v })} label="Daily briefing" />
         </Row>
         <Row label="Wake time">
-          <input type="time" className="hud-input w-32" value={st.wakeTime} onChange={(e) => e.target.value && update({ wakeTime: e.target.value })} />
+          <input type="time" className="hud-input !w-36" value={st.wakeTime} onChange={(e) => e.target.value && update({ wakeTime: e.target.value })} />
         </Row>
       </Section>
 
@@ -229,7 +229,7 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
             defaultValue={st.passcode ?? ""}
             onBlur={(e) => update({ passcode: e.target.value || undefined })}
           />
-          <span className="font-mono-hud block text-[0.65rem] text-[var(--j-faint)]">
+          <span className="block text-[0.75rem] text-[var(--j-faint)]">
             Asked for when JARVIS starts. On a server deploy, set the same value as JARVIS_ACCESS_CODE so strangers can't spend your API credits.
           </span>
         </label>
@@ -279,7 +279,7 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
             </HudButton>
           )}
         </div>
-        <p className="font-mono-hud text-[0.65rem] text-[var(--j-faint)]">
+        <p className="text-[0.75rem] text-[var(--j-faint)]">
           Everything lives in this browser&apos;s storage. Export a backup regularly until cloud sync is connected.
         </p>
       </Section>
@@ -322,7 +322,7 @@ function NeuralLink({ online }: { online: boolean | null }) {
 
       {apiKey ? (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono-hud flex-1 text-[0.75rem] text-[var(--j-muted)]">
+          <span className="font-mono-hud flex-1 text-[0.8rem] text-[var(--j-muted)]">
             Key saved: {apiKey.slice(0, 10)}…{apiKey.slice(-4)}
           </span>
           <HudButton onClick={runTest} disabled={test.state === "testing"}>
@@ -362,10 +362,10 @@ function NeuralLink({ online }: { online: boolean | null }) {
         </form>
       )}
 
-      {test.state === "ok" && <p className="font-mono-hud text-[0.7rem] text-[var(--j-green)]">✓ {test.message}</p>}
-      {test.state === "fail" && <p className="font-mono-hud text-[0.7rem] text-[var(--j-amber)]">! {test.message}</p>}
+      {test.state === "ok" && <p className="text-[0.82rem] text-[var(--j-green)]">✓ {test.message}</p>}
+      {test.state === "fail" && <p className="text-[0.82rem] text-[var(--j-amber)]">! {test.message}</p>}
 
-      <p className="font-mono-hud text-[0.65rem] leading-relaxed text-[var(--j-faint)]">
+      <p className="text-[0.75rem] leading-relaxed text-[var(--j-faint)]">
         {mode === "server"
           ? "This deployment's server already has a key. You only need your own key on a static deploy such as Netlify Drop."
           : "Get a key at console.anthropic.com → API Keys (pay as you go; a monthly spend limit there is a good idea). It's saved only in this browser, is sent only to Anthropic, and is never included in backups. Use it only on your own devices."}
