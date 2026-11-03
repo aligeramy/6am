@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   if (!hasKey()) return NextResponse.json({ error: "offline" }, { status: 503 })
   if (!authorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 })
 
-  let body: { messages?: ClientMessage[]; snapshot?: string; mode?: "chat" | "briefing" }
+  let body: { messages?: ClientMessage[]; snapshot?: string; mode?: "chat" | "briefing" | "workshop" | "review" }
   try {
     body = await req.json()
   } catch {

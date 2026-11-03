@@ -1,7 +1,8 @@
 "use client"
 
 import { format, parseISO } from "date-fns"
-import { Check, Lightbulb, Trash2 } from "lucide-react"
+import { Check, Lightbulb, Trash2, Trophy } from "lucide-react"
+import { AchievementsBody } from "./progress-ui"
 import { IdeasBody } from "./ideas"
 import { useState, type ReactNode } from "react"
 import { daysUntil, lastNDays, prettyDate, todayKey } from "@/lib/jarvis/dates"
@@ -554,7 +555,7 @@ export function PillarDetail({ scores }: { scores: Scores }) {
   const active = useJarvis((s) => s.activePillar)
   const ideaCount = useJarvis((s) => s.ideas.length)
   const close = () => useJarvis.getState().setUI({ activePillar: null, focusIdea: null })
-  const def = active && active !== "ideas" ? PILLAR_BY_ID[active] : null
+  const def = active && active !== "ideas" && active !== "achievements" ? PILLAR_BY_ID[active] : null
   return (
     <Modal open={!!active} onClose={close} variant="sheet">
       {active === "ideas" && (
@@ -574,7 +575,24 @@ export function PillarDetail({ scores }: { scores: Scores }) {
           </div>
         </>
       )}
-      {def && active && active !== "ideas" && (
+      {active === "achievements" && (
+        <>
+          <ModalHeader
+            title="SUIT & ACHIEVEMENTS"
+            sub="Earned by showing up"
+            onClose={close}
+            lead={
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--j-amber)_15%,transparent)] text-[var(--j-amber)]">
+                <Trophy className="h-5 w-5" />
+              </span>
+            }
+          />
+          <div className="p-4 sm:p-5">
+            <AchievementsBody />
+          </div>
+        </>
+      )}
+      {def && active && active !== "ideas" && active !== "achievements" && (
         <>
           <ModalHeader title={def.name.toUpperCase()} sub={def.tagline} onClose={close} lead={<Ring value={scores[active]} size={40} />} />
           <div className="p-4 sm:p-5">

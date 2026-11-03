@@ -5,13 +5,18 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { checkLink, runBriefing, sendCommand, type LinkStatus } from "@/lib/jarvis/brain"
 import { isPastTime, todayKey } from "@/lib/jarvis/dates"
 import { lifeScore, pillarScores, weakestPillar } from "@/lib/jarvis/scoring"
-import { DEFAULT_APPEARANCE, useJarvis } from "@/lib/jarvis/store"
+import { DEFAULT_APPEARANCE, exportData, useJarvis } from "@/lib/jarvis/store"
+import { achievements, computeXP, levelInfo } from "@/lib/jarvis/progress"
+import { useWeather } from "@/lib/jarvis/weather"
+import { useQuickLog } from "./quick-log"
 import { sanitizeCss } from "@/lib/jarvis/actions"
 import type { PillarId, SectionId } from "@/lib/jarvis/types"
 import { voice, type VoiceState } from "@/lib/jarvis/voice"
 import { ArcReactor } from "./arc-reactor"
 import { HudBackground } from "./background"
 import { IdeasCard } from "./ideas"
+import { InsightsCard, StatusStrip, useFocusRemaining } from "./progress-ui"
+import { RitualModal, TodayCard } from "./rituals"
 import { Workshop } from "./workshop"
 import { BootSequence, welcomeLine } from "./boot-sequence"
 import { BriefingOverlay } from "./briefing-overlay"
@@ -43,7 +48,23 @@ function useScores() {
   const journal = useJarvis((s) => s.journal)
   const settings = useJarvis((s) => s.settings)
   return useMemo(() => {
-    const scores = pillarScores({ logs, transactions, habits, missions, projects, journal, settings, chat: [], ideas: [], workshop: [], appearance: DEFAULT_APPEARANCE })
+    const scores = pillarScores({
+      logs,
+      transactions,
+      habits,
+      missions,
+      projects,
+      journal,
+      settings,
+      chat: [],
+      ideas: [],
+      workshop: [],
+      appearance: DEFAULT_APPEARANCE,
+      days: {},
+      history: {},
+      focus: null,
+      seenAchievements: [],
+    })
     return { scores, life: lifeScore(scores), weakest: weakestPillar(scores) }
   }, [logs, transactions, habits, missions, projects, journal, settings])
 }
@@ -56,6 +77,27 @@ const column: Variants = {
 const rise: Variants = {
   hidden: { opacity: 0, y: 18 },
   show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE } },
+}
+
+/** A short two-tone chime when a focus session ends. */
+function chime() {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+    ;[880, 1320].forEach((f, i) => {
+      const o = ctx.createOscillator()
+      const g = ctx.createGain()
+      o.frequency.value = f
+      o.type = "sine"
+      g.gain.setValueAtTime(0.0001, ctx.currentTime + i * 0.18)
+      g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + i * 0.18 + 0.02)
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.18 + 0.6)
+      o.connect(g).connect(ctx.destination)
+      o.start(ctx.currentTime + i * 0.18)
+      o.stop(ctx.currentTime + i * 0.18 + 0.65)
+    })
+  } catch {
+    /* audio unavailable */
+  }
 }
 
 const hexToRgb = (hex: string) => {
@@ -152,6 +194,10 @@ export default function JarvisApp() {
     switch (id) {
       case "greeting":
         return <Greeting scores={scores} life={life} weakest={weakest} />
+      case "today":
+        return <TodayCard />
+      case "insights":
+        return <InsightsCard online={!!online} />
       case "habits":
         return <HabitsCard score={scores.habits} />
       case "missions":
@@ -163,9 +209,65 @@ export default function JarvisApp() {
     }
   }
   const showGreetingOnMobile = !appearance.sections.greeting?.hidden
+  const weather = useWeather()
+  const focus = useFocusRemaining()
+
+  // Focus session finished: log it, chime, and say so.
+  useEffect(() => {
+    if (!focus || focus.remaining > 0) return
+    const s = useJarvis.getState()
+    const f = s.focus
+    if (!f) return
+    s.addLog({ metric: "deepwork", value: f.durationMin, note: `Focus: ${f.label}` })
+    s.setFocus(null)
+    chime()
+    useQuickLog.getState().flash(`Focus complete · ${f.durationMin} min logged`)
+    void voice.speak(`Focus session complete, ${s.settings.address}. ${f.durationMin} minutes logged.`, speakOpts)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.remaining])
+
+  // Keep a daily snapshot of the scores for the 30-day trend.
+  useEffect(() => {
+    if (phase !== "hud") return
+    const today = todayKey()
+    const prev = useJarvis.getState().history[today]
+    if (!prev || prev.life !== life || JSON.stringify(prev.scores) !== JSON.stringify(scores)) useJarvis.getState().recordHistory(today, { life, scores })
+  }, [phase, life, scores])
+
+  // Celebrate new achievements and suit levels (once each).
+  const lastLevel = useRef<number | null>(null)
+  // One selector per slice: a selector returning a new array each time would re-render forever.
+  const xpInputs = [
+    useJarvis((s) => s.logs),
+    useJarvis((s) => s.days),
+    useJarvis((s) => s.habits),
+    useJarvis((s) => s.ideas),
+    useJarvis((s) => s.journal),
+    useJarvis((s) => s.missions),
+    useJarvis((s) => s.transactions),
+    useJarvis((s) => s.history),
+  ]
+  useEffect(() => {
+    if (phase !== "hud") return
+    const d = exportData()
+    const fresh = achievements(d).filter((a) => a.unlocked && !d.seenAchievements.includes(a.id))
+    if (fresh.length) {
+      useJarvis.getState().markAchievementsSeen(fresh.map((a) => a.id))
+      useQuickLog.getState().flash(fresh.length === 1 ? `Achievement unlocked · ${fresh[0].name}` : `${fresh.length} achievements unlocked`)
+    }
+    const lvl = levelInfo(computeXP(d)).level
+    if (lastLevel.current !== null && lvl > lastLevel.current) {
+      const name = levelInfo(computeXP(d)).name
+      setTimeout(() => useQuickLog.getState().flash(`${name} online`), fresh.length ? 2400 : 0)
+      void voice.speak(`${name} online, ${d.settings.address}.`, speakOpts)
+    }
+    lastLevel.current = lvl
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, ...xpInputs])
 
   return (
-    <div className="jarvis-root" style={themeStyle}>
+    <div className="jarvis-root" style={themeStyle} data-style={appearance.style}>
+      {appearance.style === "hud" && <div aria-hidden className="j-scanlines" />}
       {appearance.customCss && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(appearance.customCss) }} />}
       <HudBackground />
 
@@ -208,6 +310,7 @@ export default function JarvisApp() {
                 onBriefing={() => void runBriefing(!!online)}
                 onSettings={() => useJarvis.getState().setUI({ settingsOpen: true })}
                 onWorkshop={() => useJarvis.getState().setUI({ workshopOpen: true })}
+                weather={weather}
               />
             </motion.div>
 
@@ -224,7 +327,10 @@ export default function JarvisApp() {
               {/* Core: reactor and conversation */}
               <section className="order-1 flex flex-col items-center lg:order-none lg:min-h-0">
                 <motion.div layoutId="reactor" transition={{ duration: 0.9, ease: EASE }} className="w-[min(78vw,340px)] shrink-0 lg:w-[min(100%,50vh,470px)]">
-                  <ArcReactor scores={scores} life={life} voiceState={v.state} level={v.level} onSelect={openPillar} />
+                  <ArcReactor scores={scores} life={life} voiceState={v.state} level={v.level} onSelect={openPillar} focus={focus} />
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35, duration: 0.6, ease: EASE }} className="mt-3 w-full max-w-[640px] shrink-0">
+                  <StatusStrip />
                 </motion.div>
                 {showGreetingOnMobile && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5, duration: 0.6 }} className="mt-4 w-full lg:hidden">
@@ -263,6 +369,7 @@ export default function JarvisApp() {
       <QuickLogModal />
       <SettingsPanel online={online} />
       <Workshop online={!!online} />
+      <RitualModal online={!!online} />
       <BriefingOverlay />
       <Toast />
     </div>

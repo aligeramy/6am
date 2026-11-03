@@ -7,7 +7,9 @@ export const MODEL = "claude-opus-5-5"
 
 const PERSONA = `You are J.A.R.E.D. (Jared for short), the personal life operating system of one person. You run their life dashboard, which tracks seven pillars: health, wealth, career (creative work, music, business), mind, daily habits, missions (goals), and spirit (purpose, gratitude, values), plus an ideas vault where they capture and rate ideas.
 
-Voice and manner: a composed, quick, dryly witty British AI butler. Precise and warm underneath. Address the user by their chosen form of address (given in the snapshot); use it naturally, about once per reply, not in every sentence.
+Voice and manner: a composed, quick, dryly witty British AI butler. Address the user by their chosen form of address (given in the snapshot); use it naturally, about once per reply, not in every sentence.
+
+Coaching style: candid and constructive. When something is slipping, name it plainly in one clause, then give one specific, doable fix. Acknowledge real wins in a few words without flattery, and never scold or lecture.
 
 Your replies are spoken aloud by a speech synthesizer and shown in a HUD console, so write plain spoken sentences: no markdown, lists, headings, emoji, or URLs. Keep ordinary replies to one to three sentences. Spell numbers the way they should be said when it helps ("seven and a half hours").
 
@@ -17,11 +19,13 @@ Ideas: when the user shares an idea ("idea: ...", "what if we...", "I have an id
 
 Answering: ground every number in the snapshot. Never invent data that isn't there; if something isn't tracked yet, say so and suggest how to log it. When asked for advice, be specific to their data and targets, and favour one clear next action over a list.`
 
-const BRIEFING_INSTRUCTIONS = `Deliver the morning briefing now. Speak it as one flowing piece of about 120 to 170 words: greet them with the day and date; give the life index; the priority mission and its deadline; which habits are pending today and any streak worth protecting; last night's sleep against target; a one-line money snapshot; then one specific recommendation for today based on their weakest pillar. If they have a life vision, close with a short line tying today to it. If data is thin, keep it shorter and tell them what to log. Do not call any tools.`
+const BRIEFING_INSTRUCTIONS = `Deliver the morning briefing now. Speak it as one flowing piece of about 120 to 170 words: greet them with the day, date and weather if known; give the life index and its recent trend; the priority mission and its deadline; which habits are pending today and any streak worth protecting; last night's sleep against target; a one-line money snapshot; then one specific recommendation for today based on their weakest pillar or the top insight. If today's Top 3 isn't set yet, end by inviting them to plan the day. If they have a life vision, tie today to it in one short line. If data is thin, keep it shorter and tell them what to log. Do not call any tools.`
+
+const REVIEW_INSTRUCTIONS = `I just finished my evening review (see TODAY in the snapshot: priorities with done flags, my rating, win and lesson). Give me your debrief in three or four spoken sentences: state plainly what got done, name the single biggest gap or pattern (check whether an open priority has slipped on earlier days, and how sleep or focus played in), and give one specific fix for tomorrow. If I set tomorrow's first priority, confirm it. No flattery, no scolding. Do not call any tools.`
 
 const str = (description: string) => ({ type: "string" as const, description })
 const PILLAR_ENUM = ["health", "wealth", "career", "mind", "habits", "missions", "spirit"]
-const SECTION_ENUM = ["greeting", "habits", "missions", "ideas", "health", "wealth", "career", "mind", "spirit"]
+const SECTION_ENUM = ["greeting", "today", "habits", "missions", "ideas", "insights", "health", "wealth", "career", "mind", "spirit"]
 
 export const TOOLS: Anthropic.Beta.BetaTool[] = [
   {
@@ -181,12 +185,46 @@ export const TOOLS: Anthropic.Beta.BetaTool[] = [
     strict: true,
     input_schema: {
       type: "object",
-      properties: { pillar: { type: "string", enum: [...PILLAR_ENUM, "ideas", "workshop"] } },
+      properties: { pillar: { type: "string", enum: [...PILLAR_ENUM, "ideas", "workshop", "plan", "review", "achievements"] } },
       required: ["pillar"],
       additionalProperties: false,
     },
   },
   ...IDEA_TOOLS(),
+  {
+    name: "set_top3",
+    description: "Set today's top three priorities (replaces the current list). Use when the user states their priorities or plan for the day.",
+    strict: true,
+    input_schema: {
+      type: "object",
+      properties: { items: { type: "array", items: { type: "string" }, description: "One to three short, concrete priorities." } },
+      required: ["items"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "complete_priority",
+    description: "Mark one of today's priorities as done.",
+    strict: true,
+    input_schema: { type: "object", properties: { item: str("The priority's text as in the snapshot.") }, required: ["item"], additionalProperties: false },
+  },
+  {
+    name: "start_focus",
+    description: "Start a focus (deep work) timer that counts down in the arc reactor and logs the time when it ends.",
+    strict: true,
+    input_schema: {
+      type: "object",
+      properties: { minutes: { type: "integer", description: "Usually 25, 50 or 90." }, label: str("What the session is for.") },
+      required: ["minutes"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "stop_focus",
+    description: "End the running focus session early.",
+    strict: true,
+    input_schema: { type: "object", properties: { log: { type: "boolean", description: "Whether to log the minutes done so far." } }, required: [], additionalProperties: false },
+  },
 ]
 
 function IDEA_TOOLS(): Anthropic.Beta.BetaTool[] {
@@ -260,7 +298,7 @@ function IDEA_TOOLS(): Anthropic.Beta.BetaTool[] {
 const WORKSHOP_PERSONA = `You are the Workshop: the engineering side of J.A.R.E.D., a personal life dashboard. The user talks to you to change the app itself: its look, its layout, its section names, and to fix or clean up their data. You also answer questions about how the app works.
 
 What you can change, through your tools:
-- Theme (set_theme): the accent color drives every glow, line and highlight; warning and danger colors are used for low scores and alerts; background is the page color; font_scale makes all text bigger or smaller (0.85 to 1.3). Use hex colors. For an "Iron Man suit" look use a red or gold accent (e.g. accent #ff3b3b with warning #ffc247, or accent #ffb640 with danger #ff4d4d). Keep danger visibly different from the accent.
+- Theme (set_theme): style switches between "hud" (angular sci-fi frames, scanlines, segmented meters) and "glass" (soft rounded cards). The accent color drives every glow, line and highlight; warning and danger colors are used for low scores and alerts; background is the page color; font_scale makes all text bigger or smaller (0.85 to 1.3). Use hex colors. For an "Iron Man suit" look use a red or gold accent (e.g. accent #ff3b3b with warning #ffc247, or accent #ffb640 with danger #ff4d4d). Keep danger visibly different from the accent.
 - Sections (update_section): the dashboard has sections ${SECTION_ENUM.join(", ")}. Each can be renamed (title), hidden, minimized (collapsed), or moved to the left or right column at a 1-based position. Renaming changes only the label; the data stays.
 - Custom CSS (set_custom_css): for anything else visual. The root element is .jarvis-root; cards use .glass; buttons .hud-btn; small caps labels .hud-label; display font .font-hud. CSS variables: --j-cyan (accent), --j-cyan-rgb, --j-amber, --j-red, --j-bg, --j-text, --j-muted. Prefer theme and section tools first; use CSS for things like corner radius, transparency, spacing or blur. Always scope selectors under .jarvis-root. Use mode "append" to add to existing CSS and "replace" to rewrite it (the current CSS is in the snapshot).
 - Data fixes (delete_entries, edit_entry): use the ids in the snapshot. Before deleting more than three items, or anything ambiguous, ask first.
@@ -278,6 +316,7 @@ const WORKSHOP_TOOLS: Anthropic.Beta.BetaTool[] = [
     input_schema: {
       type: "object",
       properties: {
+        style: { type: "string", enum: ["hud", "glass"], description: "hud: angular sci-fi frames, scanlines, segmented bars (default). glass: soft rounded cards." },
         accent: str("Hex color for the main accent, e.g. #ff3b3b."),
         warning: str("Hex color for warnings and middling scores."),
         danger: str("Hex color for low scores and alerts."),
@@ -373,7 +412,7 @@ export interface ClientMessage {
 export interface JarvisRequest {
   messages: ClientMessage[]
   snapshot: string
-  mode?: "chat" | "briefing" | "workshop"
+  mode?: "chat" | "briefing" | "workshop" | "review"
 }
 
 export interface JarvisResult {
@@ -398,9 +437,9 @@ export async function runJarvis(client: Anthropic, req: JarvisRequest): Promise<
       messages.push({ role, content: m.text.slice(0, 4000) })
     }
   }
-  if (req.mode === "briefing") {
+  if (req.mode === "briefing" || req.mode === "review") {
     if (messages.length && messages[messages.length - 1].role === "user") messages.pop()
-    messages.push({ role: "user", content: BRIEFING_INSTRUCTIONS })
+    messages.push({ role: "user", content: req.mode === "review" ? REVIEW_INSTRUCTIONS : BRIEFING_INSTRUCTIONS })
   }
   if (!messages.length || messages[messages.length - 1].role !== "user") {
     throw Object.assign(new Error("No user message to answer."), { code: "no_user_message" })
@@ -423,7 +462,7 @@ export async function runJarvis(client: Anthropic, req: JarvisRequest): Promise<
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       system,
-      tools: req.mode === "briefing" ? undefined : req.mode === "workshop" ? WORKSHOP_TOOLS : TOOLS,
+      tools: req.mode === "briefing" || req.mode === "review" ? undefined : req.mode === "workshop" ? WORKSHOP_TOOLS : TOOLS,
       messages,
     })
 

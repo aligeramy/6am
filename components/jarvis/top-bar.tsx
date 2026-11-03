@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import { Radio, Settings2, Sun, Volume2, VolumeX, Wrench } from "lucide-react"
 import { useEffect, useState } from "react"
 import type { VoiceState } from "@/lib/jarvis/voice"
+import { weatherGlyph, type Weather } from "@/lib/jarvis/weather"
 import { Dot, IconButton } from "./hud"
 
 const VOICE_LABEL: Record<VoiceState, string> = {
@@ -25,6 +26,7 @@ export function TopBar({
   onBriefing,
   onSettings,
   onWorkshop,
+  weather,
 }: {
   online: boolean | null
   voiceState: VoiceState
@@ -35,6 +37,7 @@ export function TopBar({
   onBriefing: () => void
   onSettings: () => void
   onWorkshop: () => void
+  weather?: Weather | null
 }) {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
@@ -68,6 +71,15 @@ export function TopBar({
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2">
+        {weather && (
+          <div className="mr-1 hidden items-center gap-1.5 text-right sm:flex" title={`${weather.label} in ${weather.place} · H ${weather.high}° L ${weather.low}°`}>
+            <span className="text-[1rem] text-[var(--j-ice)]">{weatherGlyph(weather.code)}</span>
+            <div>
+              <div className="font-hud tabular text-[0.9rem] font-medium text-[var(--j-ice)]">{weather.temp}°</div>
+              <div className="max-w-[90px] truncate text-[0.62rem] text-[var(--j-faint)]">{weather.place.split(",")[0]}</div>
+            </div>
+          </div>
+        )}
         <div className="mr-2 hidden text-right lg:block">
           <div className="font-hud tabular text-[0.95rem] font-medium text-[var(--j-ice)]">{format(now, "HH:mm")}</div>
           <div className="text-[0.68rem] text-[var(--j-faint)]">{format(now, "EEE d MMM")}</div>

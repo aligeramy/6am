@@ -12,9 +12,14 @@ pnpm dev            # open http://localhost:3000/jared
 
 ### What it does
 
+- **Daily ritual**: a two-minute **morning plan** (energy, Top 3, intention) and an **evening review** (check off priorities, rate the day, win, lesson, tomorrow's #1). Jared then gives a candid debrief: what got done, the main gap, and one specific fix for tomorrow.
+- **Focus timer**: start a 25/50/90-minute session from a priority, the Focus tile, or by voice; the arc reactor becomes the countdown and the time is logged as deep work when it ends.
+- **Progress**: a 30-day Life Index trend, **insights** from your own data (each with a concrete fix), **suit levels** (XP from showing up, Mark I to Mark L) and **achievements**.
+- **Weather**: set your city in Settings for live weather in the HUD and in briefings (Open-Meteo, no key needed).
 - **Boot sequence**: the arc reactor powers on, each pillar comes online, then Jared greets you. Press Esc to skip, or turn it off in Settings.
 - **Arc reactor**: shows your Life Index (0–100) with a ring segment per pillar. Hover a segment for its score, click it to open the pillar.
-- **Sections**: Today (greeting, habits, missions, ideas) on the left and pillar cards on the right. Every section can be **minimized** with the chevron in its header; the app remembers which ones you minimized.
+- **Two looks**: the classic HUD (angular frames, corner brackets, scanlines, segmented meters) is the default; a softer glass style is one tap away in the Workshop.
+- **Sections**: greeting, Today, habits, missions and ideas on the left; insights and pillar cards on the right. Every section can be **minimized** with the chevron in its header; the app remembers which ones you minimized.
 - **Ideas**: capture ideas by typing, by the mic, or by saying *"Jared, idea: …"*. Rate them 1–5 stars, add notes over time, tag them, set a status, and search, sort or filter the whole vault.
 - **Workshop** (wrench icon): a separate Claude that changes the app itself: colors, text size, section names, hiding, minimizing and moving sections, custom styling, and fixes to your data. It asks a question when something's unclear, and every change has an Undo. Its **Controls** tab does the same things by hand. Without Claude it still handles colors, text size and sections.
 - **Voice + chat**: click the mic, or turn on the **"Hey Jared"** wake word (radio icon) and just talk. Replies are spoken in the browser's British voice.
@@ -34,6 +39,9 @@ pnpm dev            # open http://localhost:3000/jared
 | "New mission Release the album" / "Release the album to 60%" | Missions |
 | "Grateful for my family" / "Journal: …" | Spirit & journal |
 | "Status report" / "Brief me" | Reports |
+| "Top 3: mix track 3, gym and call mom" / "Done with the gym" | Sets or checks off today's priorities |
+| "Focus 50 minutes on mixing" / "Stop focus" | Starts or ends a focus session |
+| "Plan my day" / "Evening review" | Opens the ritual |
 | "Open the workshop" / "Open ideas" | Opens a panel |
 | "Call me Chief" | Changes how Jared addresses you |
 
@@ -69,6 +77,7 @@ Everything is stored in your browser (`localStorage`). Use Settings → Export b
 - `app/api/jarvis/route.ts`: Claude endpoint (tool use; the browser applies the returned actions)
 - `lib/jarvis/claude.ts`: the shared brain: persona, tools and tool loop for Jared and for the Workshop
 - `lib/jarvis/workshop-local.ts`: the Workshop's offline parser
+- `lib/jarvis/progress.ts`, `ritual.ts`, `weather.ts`: XP, achievements, insights, the daily ritual, and weather
 - `components/jarvis/`: arc reactor, boot sequence, cards, ideas, Workshop, command bar, settings
 - `lib/jarvis/`: store, scoring, actions, the offline command parser, voice engine, briefing
 - `scripts/build-static.sh`: static build for drag-and-drop hosting

@@ -131,6 +131,7 @@ export function IdeasCard() {
   return (
     <HudPanel
       title="Ideas"
+      index="08"
       section="ideas"
       right={
         <div className="flex items-center gap-2 text-[0.75rem]">

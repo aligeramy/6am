@@ -15,7 +15,9 @@ import {
   weekDaysWith,
   weekTotal,
 } from "./scoring"
+import { computeXP, insights, levelInfo, lifeHistory, ritualStreak } from "./progress"
 import type { JarvisData } from "./types"
+import { currentWeather, weatherLine } from "./weather"
 
 /** Computed facts both the local brain and Claude reason over. */
 export function computeStatus(data: JarvisData) {
@@ -134,6 +136,41 @@ export function buildSnapshot(data: JarvisData): string {
 
   const recent = [...data.journal].sort((a, b) => b.ts - a.ts).slice(0, 5)
   if (recent.length) lines.push(`RECENT JOURNAL: ${recent.map((j) => `[${j.kind} ${j.date}] ${j.text.slice(0, 140)}`).join(" || ")}`)
+  // Daily ritual, focus and progress
+  const day = data.days[todayKey()]
+  const wx = weatherLine(currentWeather())
+  if (wx) lines.push(`WEATHER: ${wx}`)
+  lines.push(
+    `TODAY: ${
+      day?.top3.length ? `priorities: ${day.top3.map((p) => `${p.done ? "✓" : "○"} ${p.text}`).join(" / ")}` : "Top 3 not set yet"
+    }${day?.intention ? `; intention: ${day.intention}` : ""}${day?.rating ? `; day rating ${day.rating}/10` : ""}${day?.win ? `; win: ${day.win}` : ""}${
+      day?.lesson ? `; lesson: ${day.lesson}` : ""
+    }; morning plan ${day?.plannedAt ? "done" : "not done"}, evening review ${day?.reviewedAt ? "done" : `opens at ${st.reviewTime}`}`,
+  )
+  const pastDays = lastNDays(8)
+    .slice(0, 7)
+    .map((d) => data.days[d])
+    .filter((d) => d?.top3.length)
+  if (pastDays.length)
+    lines.push(
+      `RECENT DAYS: ${pastDays
+        .map((d) => `${d!.date}: ${d!.top3.filter((p) => p.done).length}/${d!.top3.length} done${d!.rating ? `, rated ${d!.rating}` : ""}${d!.top3.some((p) => !p.done) ? `, open: ${d!.top3.filter((p) => !p.done).map((p) => p.text).join(" + ")}` : ""}`)
+        .join("; ")}`,
+    )
+  if (data.focus) {
+    const left = Math.max(0, Math.round(data.focus.durationMin - (Date.now() - data.focus.startedAt) / 60000))
+    lines.push(`FOCUS SESSION RUNNING: "${data.focus.label}", ${left} of ${data.focus.durationMin} minutes left`)
+  }
+  const lvl = levelInfo(computeXP(data))
+  const hist = lifeHistory(data, 8).map((h) => h.value)
+  const weekAgo = hist[0]
+  lines.push(
+    `PROGRESS: suit level ${lvl.name} (${lvl.into}/${lvl.step} XP to next), planning streak ${ritualStreak(data)} days` +
+      (weekAgo !== null && s.life !== null ? `, life index ${s.life - weekAgo >= 0 ? "+" : ""}${s.life - weekAgo} vs a week ago` : ""),
+  )
+  const tips = insights(data).slice(0, 3)
+  if (tips.length) lines.push(`INSIGHTS (from their data): ${tips.map((i) => `${i.text} Suggested fix: ${i.fix}`).join(" | ")}`)
+
   if (data.ideas.length) {
     const fmtIdea = (i: JarvisData["ideas"][number]) =>
       `"${i.title}" [${i.rating ? `${i.rating}★` : "unrated"}, ${i.status}${i.tags.length ? `, #${i.tags.join(" #")}` : ""}${i.notes.length ? `, ${i.notes.length} notes` : ""}]`

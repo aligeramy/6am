@@ -6,6 +6,7 @@ import { demoData } from "@/lib/jarvis/demo"
 import { ADDRESS_PRESETS } from "@/lib/jarvis/pillars"
 import { backupData, useJarvis } from "@/lib/jarvis/store"
 import { testKey } from "@/lib/jarvis/brain"
+import { geocode, refreshWeather, useWeather, weatherLine } from "@/lib/jarvis/weather"
 import type { Targets } from "@/lib/jarvis/types"
 import { voice } from "@/lib/jarvis/voice"
 import { cn } from "@/lib/utils"
@@ -157,13 +158,20 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
         </Row>
       </Section>
 
-      <Section title="Morning briefing">
-        <Row label="Daily briefing" hint="Delivered at your wake time, or the first time you open Jared after it">
-          <Toggle checked={st.briefingEnabled} onChange={(v) => update({ briefingEnabled: v })} label="Daily briefing" />
+      <Section title="Daily ritual">
+        <Row label="Morning briefing" hint="Delivered at your wake time, or the first time you open Jared after it">
+          <Toggle checked={st.briefingEnabled} onChange={(v) => update({ briefingEnabled: v })} label="Morning briefing" />
         </Row>
-        <Row label="Wake time">
+        <Row label="Wake time" hint="Briefing, then your morning plan">
           <input type="time" className="hud-input !w-36" value={st.wakeTime} onChange={(e) => e.target.value && update({ wakeTime: e.target.value })} />
         </Row>
+        <Row label="Evening review" hint="When the review button lights up">
+          <input type="time" className="hud-input !w-36" value={st.reviewTime} onChange={(e) => e.target.value && update({ reviewTime: e.target.value })} />
+        </Row>
+      </Section>
+
+      <Section title="Weather">
+        <WeatherSettings />
       </Section>
 
       <Section title="Voice">
@@ -270,7 +278,7 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
           <HudButton
             onClick={() => {
               if (confirm("Load sample data? This replaces your current logs, habits, missions and journal.")) {
-                useJarvis.getState().importData(demoData())
+                useJarvis.getState().importData({ ...demoData(), seenAchievements: [] })
               }
             }}
           >
@@ -383,6 +391,85 @@ function NeuralLink({ online }: { online: boolean | null }) {
           ? "This deployment's server already has a key. You only need your own key on a static deploy such as Netlify Drop."
           : "Get a key at console.anthropic.com → API Keys (pay as you go; a monthly spend limit there is a good idea). It's saved only in this browser, is sent only to Anthropic, and is never included in backups. Use it only on your own devices."}
       </p>
+    </div>
+  )
+}
+
+function WeatherSettings() {
+  const st = useJarvis((s) => s.settings)
+  const update = useJarvis((s) => s.updateSettings)
+  const weather = useWeather()
+  const [city, setCity] = useState("")
+  const [status, setStatus] = useState<string | null>(null)
+
+  const find = async () => {
+    if (!city.trim()) return
+    setStatus("Searching…")
+    try {
+      const hit = await geocode(city.trim())
+      if (!hit) return setStatus("Couldn't find that place. Try a nearby city.")
+      update({ location: hit })
+      setCity("")
+      setStatus(null)
+    } catch {
+      setStatus("Weather service unreachable. Check your connection.")
+    }
+  }
+  const locate = () => {
+    if (!navigator.geolocation) return setStatus("Location isn't available in this browser.")
+    setStatus("Locating…")
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        update({ location: { name: "My location", lat: +pos.coords.latitude.toFixed(3), lon: +pos.coords.longitude.toFixed(3) } })
+        setStatus(null)
+      },
+      () => setStatus("Location permission was denied. Type a city instead."),
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="text-[0.85rem] text-[var(--j-text)]">
+        {st.location ? (weather ? weatherLine(weather) : `Location: ${st.location.name}`) : "Add your city to see live weather in the HUD and your briefings."}
+      </div>
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          void find()
+        }}
+      >
+        <input className="hud-input" placeholder={st.location ? "Change city" : "City, e.g. Los Angeles"} value={city} onChange={(e) => setCity(e.target.value)} aria-label="City" />
+        <HudButton type="submit" disabled={!city.trim()}>
+          Set
+        </HudButton>
+      </form>
+      <div className="flex flex-wrap items-center gap-2">
+        <HudButton variant="ghost" onClick={locate}>
+          Use my location
+        </HudButton>
+        <div className="flex overflow-hidden rounded-full border border-[var(--j-line)]">
+          {(["f", "c"] as const).map((u) => (
+            <button
+              key={u}
+              type="button"
+              onClick={() => {
+                update({ tempUnit: u })
+                void refreshWeather(true)
+              }}
+              className={cn("px-3 py-1 text-[0.8rem]", st.tempUnit === u ? "bg-[rgba(var(--j-cyan-rgb),0.18)] text-white" : "text-[var(--j-muted)]")}
+            >
+              °{u.toUpperCase()}
+            </button>
+          ))}
+        </div>
+        {st.location && (
+          <HudButton variant="ghost" onClick={() => update({ location: undefined })}>
+            Remove
+          </HudButton>
+        )}
+      </div>
+      {status && <p className="text-[0.78rem] text-[var(--j-amber)]">{status}</p>}
     </div>
   )
 }

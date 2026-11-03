@@ -45,6 +45,7 @@ export function ArcReactor({
   onSelect,
   size = 440,
   powered = true,
+  focus = null,
 }: {
   scores: Scores
   life: number | null
@@ -53,6 +54,8 @@ export function ArcReactor({
   onSelect?: (p: PillarId) => void
   size?: number | string
   powered?: boolean
+  /** When a focus session runs, the core becomes its countdown. */
+  focus?: { remaining: number; total: number; label: string } | null
 }) {
   const [hover, setHover] = useState<PillarId | null>(null)
   const seg = 360 / PILLARS.length
@@ -94,18 +97,7 @@ export function ArcReactor({
             const long = i % 10 === 0
             const a = polar(212, i * 3)
             const b = polar(long ? 200 : 206, i * 3)
-            return (
-              <line
-                key={i}
-                x1={a.x}
-                y1={a.y}
-                x2={b.x}
-                y2={b.y}
-                stroke="var(--j-cyan)"
-                strokeWidth={long ? 1.6 : 0.8}
-                opacity={long ? 0.9 : 0.45}
-              />
-            )
+            return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="var(--j-cyan)" strokeWidth={long ? 1.6 : 0.8} opacity={long ? 0.9 : 0.45} />
           })}
         </g>
 
@@ -225,28 +217,46 @@ export function ArcReactor({
         />
         <circle r={64} fill="rgba(1,8,14,0.72)" stroke="rgba(var(--j-cyan-rgb),0.4)" strokeWidth={1} />
         <circle r={58} fill="none" stroke="rgba(var(--j-cyan-rgb),0.18)" strokeWidth={6} strokeDasharray="1 3" />
+        {focus && (
+          <circle
+            r={74}
+            fill="none"
+            stroke="var(--j-cyan)"
+            strokeWidth={4}
+            strokeLinecap="round"
+            transform="rotate(-90)"
+            strokeDasharray={`${(1 - focus.remaining / focus.total) * 2 * Math.PI * 74} ${2 * Math.PI * 74}`}
+            style={{ filter: "drop-shadow(0 0 6px var(--j-cyan))", transition: "stroke-dasharray 1s linear" }}
+          />
+        )}
       </svg>
 
       {/* Center readout */}
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-        <div className="font-hud text-[0.5rem] tracking-[0.3em] text-[var(--j-muted)] sm:text-[0.55rem]">
-          {hovered ? hovered.name.toUpperCase() : STATE_LABEL[voiceState]}
-        </div>
-        <div
-          className="font-hud text-glow text-[2.2rem] font-bold leading-none sm:text-[2.8rem]"
-          style={{ color: hovered ? scoreTone(centerValue) : "#eaffff" }}
-        >
-          {voiceState === "thinking" && !hovered ? (
-            <span className="j-pulse">···</span>
-          ) : centerValue === null ? (
-            "--"
-          ) : (
-            centerValue
-          )}
-        </div>
-        <div className="font-mono-hud mt-0.5 text-[0.55rem] uppercase tracking-[0.25em] text-[var(--j-faint)]">
-          {hovered ? hovered.tagline : life === null ? "awaiting telemetry" : "of 100"}
-        </div>
+        {focus && !hovered ? (
+          <>
+            <div className="font-hud text-[0.5rem] tracking-[0.3em] text-[var(--j-cyan)] sm:text-[0.55rem]">FOCUS</div>
+            <div className="font-hud text-glow tabular text-[1.9rem] font-bold leading-none text-white sm:text-[2.4rem]">
+              {String(Math.floor(focus.remaining / 60)).padStart(2, "0")}:{String(focus.remaining % 60).padStart(2, "0")}
+            </div>
+            <div className="mt-1 max-w-[46%] truncate text-center text-[0.6rem] text-[var(--j-muted)]">{focus.label}</div>
+          </>
+        ) : (
+          <>
+            <div className="font-hud text-[0.5rem] tracking-[0.3em] text-[var(--j-muted)] sm:text-[0.55rem]">
+              {hovered ? hovered.name.toUpperCase() : STATE_LABEL[voiceState]}
+            </div>
+            <div
+              className="font-hud text-glow text-[2.2rem] font-bold leading-none sm:text-[2.8rem]"
+              style={{ color: hovered ? scoreTone(centerValue) : "#eaffff" }}
+            >
+              {voiceState === "thinking" && !hovered ? <span className="j-pulse">···</span> : centerValue === null ? "--" : centerValue}
+            </div>
+            <div className="font-mono-hud mt-0.5 text-[0.55rem] uppercase tracking-[0.25em] text-[var(--j-faint)]">
+              {hovered ? hovered.tagline : life === null ? "awaiting telemetry" : "of 100"}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
