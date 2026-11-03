@@ -6,6 +6,9 @@ import { todayKey, uid } from "./dates"
 import type {
   Appearance,
   ChatMessage,
+  DayRecord,
+  FocusSession,
+  HistoryPoint,
   Habit,
   Idea,
   JarvisData,
@@ -31,6 +34,8 @@ export const DEFAULT_SETTINGS: Settings = {
   voicePitch: 0.9,
   wakeWordEnabled: false,
   bootSequence: true,
+  reviewTime: "21:00",
+  tempUnit: "f",
   currency: "$",
   weightUnit: "lb",
   monthlyBudget: 3000,
@@ -50,14 +55,15 @@ export const DEFAULT_SETTINGS: Settings = {
 }
 
 export const DEFAULT_APPEARANCE: Appearance = {
+  style: "hud",
   accent: "#29e6ff",
   warning: "#ffb547",
   danger: "#ff5a6e",
   background: "#01060b",
   fontScale: 1,
   customCss: "",
-  left: ["greeting", "habits", "missions", "ideas"],
-  right: ["health", "wealth", "career", "mind", "spirit"],
+  left: ["greeting", "today", "habits", "missions", "ideas"],
+  right: ["insights", "health", "wealth", "career", "mind", "spirit"],
   sections: {},
 }
 
@@ -67,7 +73,13 @@ const normalizeAppearance = (a?: Partial<Appearance>): Appearance => {
   const all = [...DEFAULT_APPEARANCE.left, ...DEFAULT_APPEARANCE.right]
   const left = (merged.left || []).filter((id) => all.includes(id))
   const right = (merged.right || []).filter((id) => all.includes(id) && !left.includes(id))
-  for (const id of all) if (!left.includes(id) && !right.includes(id)) (DEFAULT_APPEARANCE.left.includes(id) ? left : right).push(id)
+  // Sections added in newer versions slot into their default position.
+  for (const id of all) {
+    if (left.includes(id) || right.includes(id)) continue
+    const home = DEFAULT_APPEARANCE.left.includes(id) ? left : right
+    const defaults = DEFAULT_APPEARANCE.left.includes(id) ? DEFAULT_APPEARANCE.left : DEFAULT_APPEARANCE.right
+    home.splice(Math.min(defaults.indexOf(id), home.length), 0, id)
+  }
   return { ...merged, left, right }
 }
 
@@ -81,6 +93,10 @@ const EMPTY: Omit<JarvisData, "settings" | "appearance"> = {
   ideas: [],
   chat: [],
   workshop: [],
+  days: {},
+  history: {},
+  focus: null,
+  seenAchievements: [],
 }
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n))
@@ -88,6 +104,8 @@ const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n
 interface UIState {
   activePillar: PanelId | null
   workshopOpen: boolean
+  /** Which daily ritual dialog is open. */
+  ritual: "plan" | "review" | null
   /** Idea to scroll to / expand when the Ideas sheet opens. */
   focusIdea: string | null
   settingsOpen: boolean
@@ -130,6 +148,12 @@ interface Actions {
   resetAppearance: () => void
   /** Removes logs, transactions, journal entries or ideas by id. */
   deleteEntries: (ids: string[]) => number
+  setDay: (date: string, patch: Partial<DayRecord>) => void
+  setTop3: (items: string[], date?: string) => void
+  togglePriority: (id: string, date?: string, force?: boolean) => void
+  setFocus: (f: FocusSession | null) => void
+  recordHistory: (date: string, point: HistoryPoint) => void
+  markAchievementsSeen: (ids: string[]) => void
   importData: (data: Partial<JarvisData>) => void
   resetAll: () => void
   setUI: (patch: Partial<UIState>) => void
@@ -151,6 +175,7 @@ export const useJarvis = create<JarvisStore>()(
       appearance: DEFAULT_APPEARANCE,
       activePillar: null,
       workshopOpen: false,
+      ritual: null,
       focusIdea: null,
       settingsOpen: false,
       briefingOpen: false,
@@ -357,6 +382,28 @@ export const useJarvis = create<JarvisStore>()(
           return { appearance: { ...s.appearance, left, right } }
         }),
       resetAppearance: () => set({ appearance: DEFAULT_APPEARANCE }),
+      setDay: (date, patch) =>
+        set((s) => ({ days: { ...s.days, [date]: { ...(s.days[date] || { date, top3: [] }), ...patch, date } } })),
+      setTop3: (items, date = todayKey()) =>
+        set((s) => {
+          const day = s.days[date] || { date, top3: [] }
+          const top3 = items
+            .map((t) => t.trim())
+            .filter(Boolean)
+            .slice(0, 3)
+            .map((text) => day.top3.find((p) => p.text === text) || { id: uid(), text, done: false })
+          return { days: { ...s.days, [date]: { ...day, top3 } } }
+        }),
+      togglePriority: (id, date = todayKey(), force) =>
+        set((s) => {
+          const day = s.days[date]
+          if (!day) return s
+          return { days: { ...s.days, [date]: { ...day, top3: day.top3.map((p) => (p.id === id ? { ...p, done: force ?? !p.done } : p)) } } }
+        }),
+      setFocus: (focus) => set({ focus }),
+      recordHistory: (date, point) => set((s) => ({ history: { ...s.history, [date]: point } })),
+      markAchievementsSeen: (ids) => set((s) => ({ seenAchievements: [...new Set([...s.seenAchievements, ...ids])] })),
+
       deleteEntries: (ids) => {
         const kill = new Set(ids)
         const s = get()
@@ -382,6 +429,10 @@ export const useJarvis = create<JarvisStore>()(
           ideas: data.ideas ?? s.ideas,
           chat: data.chat ?? s.chat,
           workshop: data.workshop ?? s.workshop,
+          days: data.days ?? s.days,
+          history: data.history ?? s.history,
+          focus: data.focus !== undefined ? data.focus : s.focus,
+          seenAchievements: data.seenAchievements ?? s.seenAchievements,
           appearance: data.appearance ? normalizeAppearance(data.appearance) : s.appearance,
           settings: data.settings
             ? {
@@ -411,6 +462,10 @@ export const useJarvis = create<JarvisStore>()(
         ideas: s.ideas,
         chat: s.chat,
         workshop: s.workshop,
+        days: s.days,
+        history: s.history,
+        focus: s.focus,
+        seenAchievements: s.seenAchievements,
         appearance: s.appearance,
         settings: s.settings,
       }),
@@ -421,6 +476,10 @@ export const useJarvis = create<JarvisStore>()(
           ...p,
           ideas: p.ideas ?? [],
           workshop: p.workshop ?? [],
+          days: p.days ?? {},
+          history: p.history ?? {},
+          focus: p.focus ?? null,
+          seenAchievements: p.seenAchievements ?? [],
           appearance: normalizeAppearance(p.appearance),
           settings: {
             ...DEFAULT_SETTINGS,
@@ -445,6 +504,10 @@ export const exportData = (): JarvisData => {
     ideas: s.ideas,
     chat: s.chat,
     workshop: s.workshop,
+    days: s.days,
+    history: s.history,
+    focus: s.focus,
+    seenAchievements: s.seenAchievements,
     appearance: s.appearance,
     settings: s.settings,
   }

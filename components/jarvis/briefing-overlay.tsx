@@ -1,6 +1,7 @@
 "use client"
 
 import { format } from "date-fns"
+import { todayKey } from "@/lib/jarvis/dates"
 import { useJarvis } from "@/lib/jarvis/store"
 import { voice } from "@/lib/jarvis/voice"
 import { HudButton } from "./hud"
@@ -38,7 +39,15 @@ export function BriefingOverlay() {
           >
             Replay
           </HudButton>
-          <HudButton variant="solid" onClick={close}>
+          <HudButton
+            variant="solid"
+            onClick={() => {
+              close()
+              // Straight into the morning plan if today isn't planned yet.
+              const s = useJarvis.getState()
+              if (!s.days[todayKey()]?.plannedAt) s.setUI({ ritual: "plan" })
+            }}
+          >
             Let&apos;s begin
           </HudButton>
         </div>

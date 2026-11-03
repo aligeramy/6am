@@ -24,6 +24,10 @@ const SUIT = { accent: "#ff3b3b", warning: "#ffc247", danger: "#ff7ad9" }
 const SECTION_WORDS: Record<string, SectionId> = {
   greeting: "greeting",
   welcome: "greeting",
+  today: "today",
+  priorities: "today",
+  insights: "insights",
+  insight: "insights",
   habit: "habits",
   habits: "habits",
   protocols: "habits",
@@ -57,6 +61,11 @@ export function localWorkshop(input: string): { reply: string; actions: JarvisAc
   if (/\b(reset|restore|original|default)\b.*\b(look|theme|appearance|design|everything|layout)\b|\breset\b$/.test(lower)) {
     return { reply: "Everything's back to the original look.", actions: [{ type: "reset_appearance" }] }
   }
+
+  if (/\b(glass|smooth|soft|rounded|minimal)\b/.test(lower) && /\b(style|look|mode|switch|make|use|go)\b/.test(lower))
+    return { reply: "Switched to the glass style.", actions: [{ type: "set_theme", style: "glass" }] }
+  if (/\b(hud|classic|futuristic|angular|sci-?fi|original)\b/.test(lower) && /\b(style|look|mode|switch|make|use|go|back)\b/.test(lower))
+    return { reply: "Classic HUD style engaged.", actions: [{ type: "set_theme", style: "hud" }] }
 
   if (/\b(iron ?man|suit|mark)\b/.test(lower)) {
     return { reply: "Suit colors engaged.", actions: [{ type: "set_theme", ...SUIT }] }
@@ -93,7 +102,7 @@ export function localWorkshop(input: string): { reply: string; actions: JarvisAc
 
   return {
     reply:
-      "Without Claude connected I can handle colors (\"make it red\", \"Iron Man colors\"), text size, and sections (\"hide wealth\", \"minimize ideas\", \"rename spirit to Faith\", \"move ideas to the right\"). Connect Claude in Settings and I can do much more, including fixing your data.",
+      "Without Claude connected I can handle the style (\"classic HUD\" or \"glass\"), colors (\"make it red\", \"Iron Man colors\"), text size, and sections (\"hide wealth\", \"minimize ideas\", \"rename spirit to Faith\", \"move ideas to the right\"). Connect Claude in Settings and I can do much more, including fixing your data.",
     actions: [],
   }
 }

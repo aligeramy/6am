@@ -4,6 +4,8 @@ import { PILLAR_BY_ID } from "./pillars"
 import { formatMinutes, formatMoney } from "./scoring"
 import { computeStatus } from "./snapshot"
 import type { JarvisData, PillarId } from "./types"
+import { currentWeather, weatherLine } from "./weather"
+import { todayKey } from "./dates"
 
 const NUDGES: Record<PillarId, string> = {
   health: "I'd suggest prioritising movement and an early night.",
@@ -23,6 +25,8 @@ export function localBriefing(data: JarvisData, now = new Date()): string {
   const parts: string[] = []
 
   parts.push(`${greetingFor(now)}, ${addr}. It's ${format(now, "EEEE, MMMM do")}, ${format(now, "h:mm a")}.`)
+  const wx = weatherLine(currentWeather())
+  if (wx) parts.push(`Outside it's ${wx}.`)
 
   if (s.life !== null) {
     parts.push(`Life index stands at ${s.life} percent.`)
@@ -69,7 +73,8 @@ export function localBriefing(data: JarvisData, now = new Date()): string {
   }
 
   if (settings.vision) parts.push(`Remember why: ${settings.vision}`)
-  parts.push("Shall we begin?")
+  const day = data.days[todayKey()]
+  parts.push(day?.top3.length ? `Your first priority today: ${day.top3.find((p) => !p.done)?.text ?? day.top3[0].text}.` : "Let's set today's Top 3.")
   return parts.join(" ")
 }
 

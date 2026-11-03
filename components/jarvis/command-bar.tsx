@@ -129,16 +129,16 @@ function MicOrb({ state, level }: { state: VoiceState; level: number }) {
       onClick={() => (listening ? voice.cancelCommand() : speaking ? voice.stopSpeaking() : voice.beginCommand())}
       aria-label={listening ? "Stop listening" : speaking ? "Stop speaking" : "Speak a command"}
       title={listening ? "Stop listening" : speaking ? "Stop speaking" : "Speak a command  ( / to type )"}
-      className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+      className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full keep-round"
     >
       {(listening || speaking) && (
         <>
-          <span className="absolute inset-0 rounded-full border border-[var(--j-cyan)]" style={{ animation: "j-ring 1.6s ease-out infinite" }} />
-          <span className="absolute inset-0 rounded-full border border-[var(--j-cyan)]" style={{ animation: "j-ring 1.6s ease-out 0.8s infinite" }} />
+          <span className="absolute inset-0 rounded-full keep-round border border-[var(--j-cyan)]" style={{ animation: "j-ring 1.6s ease-out infinite" }} />
+          <span className="absolute inset-0 rounded-full keep-round border border-[var(--j-cyan)]" style={{ animation: "j-ring 1.6s ease-out 0.8s infinite" }} />
         </>
       )}
       <motion.span
-        className="absolute inset-0 rounded-full"
+        className="absolute inset-0 rounded-full keep-round"
         animate={{
           scale: listening || speaking ? 1 + level * 0.12 : 1,
           boxShadow: listening || speaking ? "0 0 28px 2px rgba(var(--j-cyan-rgb),0.75)" : "0 0 18px -4px rgba(var(--j-cyan-rgb),0.55)",

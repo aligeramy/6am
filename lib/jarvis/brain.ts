@@ -9,6 +9,7 @@ import { localBrain } from "./local-brain"
 import { buildSnapshot, buildWorkshopSnapshot } from "./snapshot"
 import { exportData, useJarvis } from "./store"
 import { localWorkshop } from "./workshop-local"
+import { localReviewFeedback } from "./ritual"
 import type { ChatAction, JarvisAction, JarvisData } from "./types"
 import { voice } from "./voice"
 
@@ -92,7 +93,7 @@ async function serverRun(req: JarvisRequest): Promise<JarvisResult> {
   return res.json()
 }
 
-async function callClaude(mode: "chat" | "briefing" | "workshop") {
+async function callClaude(mode: "chat" | "briefing" | "workshop" | "review") {
   const data = exportData()
   const history = mode === "workshop" ? data.workshop : data.chat
   const req: JarvisRequest = {
@@ -136,6 +137,27 @@ export async function runBriefing(online: boolean) {
   store.setUI({ briefingOpen: true, briefingText: text })
   store.pushChat({ role: "jarvis", text })
   await speak(text)
+}
+
+/** Evening debrief after the review is saved: Claude if connected, otherwise the local coach. */
+export async function runReview(online: boolean) {
+  voice.setThinking(true)
+  let text = ""
+  if (online) {
+    try {
+      text = (await callClaude("review")).reply
+    } catch {
+      text = ""
+    }
+  }
+  const day = useJarvis.getState().days[todayKey()]
+  if (!text && day) text = localReviewFeedback(exportData(), day)
+  voice.setThinking(false)
+  const store = useJarvis.getState()
+  store.setDay(todayKey(), { feedback: text })
+  store.pushChat({ role: "jarvis", text })
+  void speak(text)
+  return text
 }
 
 let busy = false
@@ -190,7 +212,7 @@ export async function sendCommand(input: string, online: boolean) {
 /* ───────── Workshop: changes the app itself, with undo ───────── */
 
 /** Snapshots taken before each Workshop change, keyed by the reply that made it. Kept for this session only. */
-const undoStack = new Map<string, Omit<JarvisData, "chat" | "workshop" | "settings">>()
+const undoStack = new Map<string, Pick<JarvisData, "logs" | "transactions" | "habits" | "missions" | "projects" | "journal" | "ideas" | "appearance">>()
 
 function snapshotForUndo() {
   const d = exportData()

@@ -3,6 +3,7 @@
 import { METRIC_BY_ID, PILLAR_BY_ID } from "./pillars"
 import { useJarvis } from "./store"
 import { formatMinutes, formatMoney } from "./scoring"
+import { todayKey } from "./dates"
 import { DEFAULT_APPEARANCE } from "./store"
 import type { ChatAction, IdeaStatus, JarvisAction, PillarId, SectionId } from "./types"
 
@@ -45,6 +46,8 @@ const isHex = (c: unknown): c is string => typeof c === "string" && /^#([0-9a-f]
 const SECTIONS: SectionId[] = [...DEFAULT_APPEARANCE.left, ...DEFAULT_APPEARANCE.right]
 const SECTION_NAMES: Record<SectionId, string> = {
   greeting: "Greeting",
+  today: "Today",
+  insights: "Insights",
   habits: "Habits",
   missions: "Missions",
   ideas: "Ideas",
@@ -179,6 +182,14 @@ export function applyAction(action: JarvisAction): ChatAction {
           s.setUI({ workshopOpen: true })
           return { ok: true, label: "Opened the Workshop" }
         }
+        if (action.pillar === "plan" || action.pillar === "review") {
+          s.setUI({ ritual: action.pillar })
+          return { ok: true, label: action.pillar === "plan" ? "Opened morning plan" : "Opened evening review" }
+        }
+        if (action.pillar === "achievements") {
+          s.setUI({ activePillar: "achievements" })
+          return { ok: true, label: "Opened achievements" }
+        }
         if (action.pillar === "ideas") {
           s.setUI({ activePillar: "ideas" })
           return { ok: true, label: "Opened Ideas" }
@@ -236,6 +247,7 @@ export function applyAction(action: JarvisAction): ChatAction {
             patch[k] = action[k]!.trim()
           }
         }
+        if (action.style === "hud" || action.style === "glass") patch.style = action.style
         if (action.font_scale !== undefined) patch.fontScale = Math.max(0.85, Math.min(1.3, action.font_scale))
         if (!Object.keys(patch).length) return { ok: false, label: "No theme change" }
         s.updateAppearance(patch)
@@ -307,6 +319,35 @@ export function applyAction(action: JarvisAction): ChatAction {
           ),
         })
         return { ok: true, label: `Edited ${tx!.kind} entry` }
+      }
+      case "set_top3": {
+        const items = (action.items || []).map((x) => x.trim()).filter(Boolean).slice(0, 3)
+        if (!items.length) return { ok: false, label: "No priorities given" }
+        s.setTop3(items)
+        if (!s.days[todayKey()]?.plannedAt) s.setDay(todayKey(), { plannedAt: Date.now() })
+        return { ok: true, label: `Top ${items.length} set` }
+      }
+      case "complete_priority": {
+        const day = s.days[todayKey()]
+        const p = day ? fuzzyFind(day.top3, action.item, (x) => x.text) : null
+        if (!p) return { ok: false, label: `No priority matching "${action.item}"` }
+        s.togglePriority(p.id, todayKey(), true)
+        return { ok: true, label: `Priority ✓ ${p.text.slice(0, 36)}` }
+      }
+      case "start_focus": {
+        const minutes = Math.max(5, Math.min(180, Math.round(action.minutes || 25)))
+        const day = s.days[todayKey()]
+        const label = action.label?.trim() || day?.top3.find((p) => !p.done)?.text || "Deep work"
+        s.setFocus({ label, startedAt: Date.now(), durationMin: minutes })
+        return { ok: true, label: `Focus · ${minutes}m · ${label.slice(0, 30)}` }
+      }
+      case "stop_focus": {
+        const f = s.focus
+        if (!f) return { ok: false, label: "No focus session running" }
+        const done = Math.round((Date.now() - f.startedAt) / 60000)
+        if (action.log !== false && done >= 5) s.addLog({ metric: "deepwork", value: done, note: `Focus: ${f.label}` })
+        s.setFocus(null)
+        return { ok: true, label: action.log !== false && done >= 5 ? `Focus ended · ${done}m logged` : "Focus ended" }
       }
       case "ask_user":
         // Rendered as quick-reply buttons under the message; nothing to change.

@@ -112,7 +112,18 @@ export interface Idea {
 
 /* ───────── Appearance & layout (what the Workshop edits) ───────── */
 
-export type SectionId = "greeting" | "habits" | "missions" | "ideas" | "health" | "wealth" | "career" | "mind" | "spirit"
+export type SectionId =
+  | "greeting"
+  | "today"
+  | "habits"
+  | "missions"
+  | "ideas"
+  | "insights"
+  | "health"
+  | "wealth"
+  | "career"
+  | "mind"
+  | "spirit"
 
 export interface SectionPref {
   hidden?: boolean
@@ -121,6 +132,8 @@ export interface SectionPref {
 }
 
 export interface Appearance {
+  /** "hud": angular sci-fi frames, scanlines, segmented bars. "glass": soft rounded cards. */
+  style: "hud" | "glass"
   accent: string // hex, drives the whole HUD color
   warning: string
   danger: string
@@ -133,7 +146,7 @@ export interface Appearance {
 }
 
 /** Anything that opens in the detail sheet. */
-export type PanelId = PillarId | "ideas"
+export type PanelId = PillarId | "ideas" | "achievements"
 
 export interface Targets {
   sleep: number // hours per night
@@ -162,6 +175,10 @@ export interface Settings {
   passcode?: string
   /** Your own Anthropic key, kept in this browser only. Lets Jared reach Claude with no server (e.g. Netlify Drop). */
   apiKey?: string
+  /** When the evening review becomes available (HH:mm). */
+  reviewTime: string
+  location?: { name: string; lat: number; lon: number }
+  tempUnit: "f" | "c"
   currency: string
   weightUnit: "lb" | "kg"
   monthlyBudget: number
@@ -169,6 +186,39 @@ export interface Settings {
   vision: string
   values: string[]
   targets: Targets
+}
+
+/* ───────── Daily ritual, focus and progress ───────── */
+
+export interface Priority {
+  id: string
+  text: string
+  done: boolean
+}
+
+/** One day's plan (morning) and review (evening). */
+export interface DayRecord {
+  date: string
+  top3: Priority[]
+  intention?: string
+  plannedAt?: number
+  reviewedAt?: number
+  rating?: number // 1-10
+  win?: string
+  lesson?: string
+  feedback?: string // Jared's evening take
+}
+
+export interface FocusSession {
+  label: string
+  startedAt: number
+  durationMin: number
+}
+
+/** End-of-day snapshot of the scores, for trends. */
+export interface HistoryPoint {
+  life: number | null
+  scores: Record<PillarId, number | null>
 }
 
 export interface JarvisData {
@@ -182,6 +232,11 @@ export interface JarvisData {
   chat: ChatMessage[]
   /** The Workshop's own conversation. */
   workshop: ChatMessage[]
+  days: Record<string, DayRecord>
+  history: Record<string, HistoryPoint>
+  focus: FocusSession | null
+  /** Achievement ids already announced, so each unlock is celebrated once. */
+  seenAchievements: string[]
   appearance: Appearance
   settings: Settings
 }
@@ -202,7 +257,7 @@ export type JarvisAction =
   | { type: "set_form_of_address"; address: string }
   | { type: "update_profile"; name?: string; wake_time?: string; monthly_budget?: number; vision?: string }
   | { type: "set_net_worth"; amount: number }
-  | { type: "open_panel"; pillar: PanelId | "workshop" }
+  | { type: "open_panel"; pillar: PanelId | "workshop" | "plan" | "review" }
   // Ideas
   | { type: "create_idea"; title: string; note?: string; rating?: number; tags?: string[] }
   | { type: "rate_idea"; idea: string; rating: number }
@@ -210,10 +265,15 @@ export type JarvisAction =
   | { type: "update_idea"; idea: string; title?: string; status?: IdeaStatus; tags?: string[] }
   | { type: "delete_idea"; idea: string }
   // Workshop: appearance, layout and data fixes
-  | { type: "set_theme"; accent?: string; warning?: string; danger?: string; background?: string; font_scale?: number }
+  | { type: "set_theme"; style?: "hud" | "glass"; accent?: string; warning?: string; danger?: string; background?: string; font_scale?: number }
   | { type: "update_section"; section: SectionId; title?: string; hidden?: boolean; collapsed?: boolean; column?: "left" | "right"; position?: number }
   | { type: "set_custom_css"; css: string; mode?: "replace" | "append" }
   | { type: "reset_appearance" }
   | { type: "delete_entries"; ids: string[] }
   | { type: "edit_entry"; id: string; value?: number; amount?: number; date?: string; note?: string; category?: string }
   | { type: "ask_user"; question: string; options?: string[] }
+  // Daily ritual and focus
+  | { type: "set_top3"; items: string[] }
+  | { type: "complete_priority"; item: string }
+  | { type: "start_focus"; minutes: number; label?: string }
+  | { type: "stop_focus"; log?: boolean }

@@ -81,6 +81,7 @@ export function HabitsCard({ score }: { score: number | null }) {
   return (
     <HudPanel
       title="Today's protocols"
+      index="05"
       section="habits"
       right={
         <button type="button" onClick={() => open("habits")} className="flex items-center gap-2 text-[0.8rem] text-[var(--j-muted)] transition-colors hover:text-white" aria-label="Open habits">
@@ -153,6 +154,7 @@ export function MissionsCard({ score }: { score: number | null }) {
   return (
     <HudPanel
       title="Missions"
+      index="06"
       section="missions"
       right={
         <button type="button" onClick={() => open("missions")} className="flex items-center gap-2 text-[0.8rem] text-[var(--j-muted)] transition-colors hover:text-white">

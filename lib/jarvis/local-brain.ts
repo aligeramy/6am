@@ -1,4 +1,5 @@
 import { localStatusReport } from "./briefing"
+import { todayKey } from "./dates"
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "./pillars"
 import type { JarvisAction, JarvisData, PillarId } from "./types"
 
@@ -111,7 +112,14 @@ function parseClause(raw: string, data: JarvisData): { actions: JarvisAction[]; 
   // ── Habits (before generic activity parsing) ─────────
   const newHabit = original.match(/(?:new|add|create|track)\s+(?:a\s+)?habit[:\s]+(.+)/i)
   if (newHabit) return { actions: [{ type: "create_habit", name: CAPITALIZE(newHabit[1].trim()) }] }
-  const doneHabit = original.match(/(?:completed?|done with|did|finished|check off|checked off|mark)\s+(?:my\s+)?(.+?)(?:\s+(?:habit|as done))?$/i)
+  const doneHabit = original.match(/(?:completed?|done with|did|finished|check off|checked off|mark)\s+(?:my\s+)?(.+?)(?:\s+(?:habit|priority|as done))?$/i)
+  // Today's priorities take precedence over habits with a similar name.
+  const top3 = data.days[todayKey()]?.top3 ?? []
+  if (doneHabit && top3.length) {
+    const q = doneHabit[1].toLowerCase().replace(/^the\s+/, "")
+    const hit = top3.find((p) => !p.done && (p.text.toLowerCase().includes(q) || q.includes(p.text.toLowerCase())))
+    if (hit) return { actions: [{ type: "complete_priority", item: hit.text }] }
+  }
   if (doneHabit && data.habits.length) {
     const q = doneHabit[1].toLowerCase()
     const hit = data.habits.find((h) => q.includes(h.name.toLowerCase()) || h.name.toLowerCase().includes(q))
@@ -237,6 +245,40 @@ function parseIdea(text: string, data: JarvisData): BrainResult | null {
   return null
 }
 
+/** Daily ritual and focus commands. Parsed on the whole sentence because priority lists contain commas. */
+function parseRitual(text: string, data: JarvisData): BrainResult | null {
+  const a = data.settings.address
+  const lower = text.toLowerCase()
+  if (/\b(plan my day|morning plan|plan (?:for )?today|let'?s plan)\b/.test(lower)) return { reply: `Let's plan the day, ${a}.`, actions: [{ type: "open_panel", pillar: "plan" }] }
+  if (/\b(evening review|review (?:my|the) day|end of (?:the )?day review|close out the day|daily review)\b/.test(lower))
+    return { reply: `Let's close out the day, ${a}.`, actions: [{ type: "open_panel", pillar: "review" }] }
+  if (/\b(achievements|suit level|my level)\b/.test(lower)) return { reply: `On screen, ${a}.`, actions: [{ type: "open_panel", pillar: "achievements" }] }
+
+  const top =
+    text.match(/^(?:my\s+|today'?s\s+)?(?:top\s*(?:3|three)|priorities)(?:\s+(?:for\s+)?today)?(?:\s+(?:is|are))?\s*[:\-–—]\s*(.+)$/i) ||
+    text.match(/^my\s+(?:top\s*(?:3|three)\s+|priorities\s+)?(?:today\s+)?(?:are|is)\s*:?\s*(.+)$/i)
+  if (top) {
+    const items = top[1]
+      .split(/\s*(?:,|;|\band then\b|\band\b|\d\)|\d\.)\s*/i)
+      .map((x) => x.trim().replace(/^[-•]\s*/, "").replace(/[.!]+$/, ""))
+      .filter(Boolean)
+      .slice(0, 3)
+      .map((x) => x.charAt(0).toUpperCase() + x.slice(1))
+    if (items.length) return { reply: `Top ${items.length} locked in, ${a}. First up: ${items[0]}.`, actions: [{ type: "set_top3", items }] }
+  }
+
+  if (/\b(stop|end|cancel|finish)\s+(?:the\s+)?focus\b/.test(lower)) return { reply: `Focus session ended, ${a}.`, actions: [{ type: "stop_focus", log: true }] }
+  const focus = text.match(/^(?:start\s+(?:a\s+)?)?(?:focus|deep work(?=\s+(?:session|timer)))(?:\s+(?:session|mode|timer))?(?:\s+for)?\s*(\d{1,3})?\s*(?:m|min|mins|minutes?)?(?:\s+(?:on|for)\s+(.+))?$/i)
+  if (focus && (focus[1] || /^start|focus (?:session|mode|timer)|^focus$/i.test(text.trim()) || focus[2])) {
+    const minutes = focus[1] ? Number(focus[1]) : 50
+    return {
+      reply: `Focus mode engaged for ${minutes} minutes. I'll hold your calls, ${a}.`,
+      actions: [{ type: "start_focus", minutes, label: focus[2]?.trim() }],
+    }
+  }
+  return null
+}
+
 export function localBrain(input: string, data: JarvisData): BrainResult {
   const a = data.settings.address
   const text = input.trim()
@@ -244,6 +286,8 @@ export function localBrain(input: string, data: JarvisData): BrainResult {
 
   const idea = parseIdea(text.replace(/^(?:hey\s+)?jared[,\s]+/i, ""), data)
   if (idea) return idea
+  const ritual = parseRitual(text.replace(/^(?:hey\s+)?jared[,\s]+/i, ""), data)
+  if (ritual) return ritual
 
   if (/^(hi|hey|hello|yo|good (morning|afternoon|evening)|jared|jarvis)[!. ]*$/i.test(text))
     return { reply: `At your service, ${a}. How can I help?`, actions: [] }
@@ -253,7 +297,7 @@ export function localBrain(input: string, data: JarvisData): BrainResult {
       reply:
         `I can log your life by voice or text, ${a}. Try "slept 7 hours", "spent 40 dollars on food", "two hours in the studio", ` +
         `"meditated 10 minutes", "grateful for my family", "idea: start a podcast, 4 stars", "rate the podcast idea 5 stars", ` +
-        `"new habit cold shower", "new mission release the album", "open the workshop", ` +
+        `"new habit cold shower", "top 3: mix track 3, gym, call mom", "focus 50 minutes on mixing", "plan my day", "evening review", "open the workshop", ` +
         `"status report", or "call me Boss".`,
       actions: [],
     }

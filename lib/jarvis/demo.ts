@@ -2,7 +2,7 @@ import { dayKey, uid } from "./dates"
 import type { JarvisData } from "./types"
 
 /** Realistic sample data so you can see every panel lit up. Replaces existing data. */
-export function demoData(): Omit<JarvisData, "settings" | "chat" | "workshop" | "appearance"> {
+export function demoData(): Omit<JarvisData, "settings" | "chat" | "workshop" | "appearance" | "focus" | "seenAchievements"> {
   const r = (min: number, max: number, dp = 0) => +(min + Math.random() * (max - min)).toFixed(dp)
   const logs: JarvisData["logs"] = []
   const transactions: JarvisData["transactions"] = []
@@ -98,5 +98,39 @@ export function demoData(): Omit<JarvisData, "settings" | "chat" | "workshop" | 
     idea("Learn piano basics for songwriting", 0, "new", ["learning"], [], 1),
   ]
 
-  return { logs, transactions, habits, missions, projects, journal, ideas }
+  // 30 days of rituals: ratings follow sleep (so the sleep insight has something to find); today is left unplanned.
+  const pool = ["Mix track 3", "Write verse for Not Sorry", "Gym: legs", "Edit music video rough cut", "Pitch to two playlists", "Plan merch drop", "Studio: vocals", "Read 20 pages", "Reply to label email", "Budget review"]
+  const days: JarvisData["days"] = {}
+  const history: JarvisData["history"] = {}
+  let life = 52
+  for (let d = -29; d <= -1; d++) {
+    const date = dayKey(d)
+    const sleep = logs.filter((l) => l.metric === "sleep" && l.date === date).reduce((a, l) => a + l.value, 0) || 7
+    const good = sleep >= 7.5
+    if (Math.random() > 0.2) {
+      const picks = [...pool].sort(() => Math.random() - 0.5).slice(0, 3)
+      const reviewed = Math.random() > 0.3
+      days[date] = {
+        date,
+        top3: picks.map((text, i) => ({ id: uid(), text, done: Math.random() < (good ? 0.85 : 0.5) - i * 0.1 })),
+        plannedAt: Date.now() + d * 86400000,
+        intention: Math.random() > 0.6 ? "Stay locked in, phone away until noon" : undefined,
+        ...(reviewed
+          ? {
+              reviewedAt: Date.now() + d * 86400000 + 12 * 3600000,
+              rating: Math.max(3, Math.min(10, Math.round((good ? 7.6 : 5.6) + (Math.random() * 2 - 1)))),
+              win: Math.random() > 0.5 ? "Finished the hook" : undefined,
+            }
+          : {}),
+      }
+    }
+    life = Math.max(35, Math.min(80, life + (Math.random() * 6 - 2.4)))
+    const around = (n: number) => Math.max(10, Math.min(100, Math.round(life + n + (Math.random() * 16 - 8))))
+    history[date] = {
+      life: Math.round(life),
+      scores: { health: around(8), wealth: around(0), career: around(12), mind: around(-4), habits: around(2), missions: around(-6), spirit: around(-14) },
+    }
+  }
+
+  return { logs, transactions, habits, missions, projects, journal, ideas, days, history }
 }

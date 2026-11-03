@@ -449,3 +449,122 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ───────────────────────── Classic HUD style ─────────────────────────
+   data-style="hud" on .jarvis-root turns the glass cards into angular sci-fi frames:
+   cut corners, corner brackets, a passing sheen, scanlines and squared controls. */
+
+.jarvis-root[data-style="hud"] .glass {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  background:
+    linear-gradient(180deg, rgba(var(--j-cyan-rgb), 0.075), color-mix(in srgb, var(--j-bg) 72%, transparent) 75%),
+    repeating-linear-gradient(90deg, transparent 0 39px, rgba(var(--j-cyan-rgb), 0.025) 39px 40px);
+  border: 1px solid rgba(var(--j-cyan-rgb), 0.2);
+  box-shadow: inset 0 0 30px rgba(var(--j-cyan-rgb), 0.04);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+/* Corner brackets (top-left, bottom-right) and the diagonal edges of the cut corners */
+.jarvis-root[data-style="hud"] .glass::before {
+  padding: 0;
+  -webkit-mask: none;
+  mask: none;
+  border-radius: 0;
+  background:
+    linear-gradient(var(--j-cyan), var(--j-cyan)) left top / 14px 1.5px no-repeat,
+    linear-gradient(var(--j-cyan), var(--j-cyan)) left top / 1.5px 14px no-repeat,
+    linear-gradient(var(--j-cyan), var(--j-cyan)) right bottom / 14px 1.5px no-repeat,
+    linear-gradient(var(--j-cyan), var(--j-cyan)) right bottom / 1.5px 14px no-repeat,
+    linear-gradient(to bottom left, transparent calc(50% - 0.8px), rgba(var(--j-cyan-rgb), 0.55) 50%, transparent calc(50% + 0.8px)) right top / 14px 14px no-repeat,
+    linear-gradient(to bottom left, transparent calc(50% - 0.8px), rgba(var(--j-cyan-rgb), 0.55) 50%, transparent calc(50% + 0.8px)) left bottom / 14px 14px no-repeat;
+  filter: drop-shadow(0 0 3px rgba(var(--j-cyan-rgb), 0.9));
+}
+/* A slow sheen passing across each frame (transform-only, so it stays cheap) */
+.jarvis-root[data-style="hud"] .glass::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -60%;
+  width: 40%;
+  background: linear-gradient(105deg, transparent, rgba(var(--j-cyan-rgb), 0.07), transparent);
+  animation: j-sheen 11s linear infinite;
+  pointer-events: none;
+  will-change: transform;
+}
+.jarvis-root[data-style="hud"] .glass-hover:hover {
+  transform: none;
+  border-color: rgba(var(--j-cyan-rgb), 0.45);
+  box-shadow: inset 0 0 34px rgba(var(--j-cyan-rgb), 0.09);
+}
+.jarvis-root[data-style="hud"] .glass > header {
+  border-bottom: 1px solid var(--j-line);
+  padding-bottom: 0.6rem;
+}
+.jarvis-root[data-style="hud"] .hud-label {
+  font-family: var(--font-jarvis-display), sans-serif;
+  font-size: 0.58rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+}
+.jarvis-root[data-style="hud"] .glass > header .hud-label {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--j-ice);
+  text-shadow: 0 0 10px rgba(var(--j-cyan-rgb), 0.45);
+}
+.hud-index {
+  display: none;
+}
+.jarvis-root[data-style="hud"] .hud-index {
+  display: inline;
+  margin-right: 0.5em;
+  font-family: var(--font-jarvis-mono), monospace;
+  color: var(--j-faint);
+  text-shadow: none;
+  letter-spacing: 0.05em;
+}
+.jarvis-root[data-style="hud"] .hud-btn {
+  border-radius: 0;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  font-family: var(--font-jarvis-display), sans-serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+}
+.jarvis-root[data-style="hud"] .hud-input {
+  border-radius: 2px;
+  font-family: var(--font-jarvis-mono), monospace;
+}
+.jarvis-root[data-style="hud"] .inset-panel {
+  border-radius: 2px;
+}
+/* Squared-off chips, pills and checkboxes; .keep-round opts out (e.g. the mic orb). */
+.jarvis-root[data-style="hud"] .rounded-full:not(.keep-round),
+.jarvis-root[data-style="hud"] .rounded-2xl:not(.keep-round),
+.jarvis-root[data-style="hud"] .rounded-xl:not(.keep-round),
+.jarvis-root[data-style="hud"] .\!rounded-full:not(.keep-round) {
+  border-radius: 2px !important;
+}
+.jarvis-root[data-style="hud"] .hud-toggle,
+.jarvis-root[data-style="hud"] .hud-toggle::after {
+  border-radius: 1px;
+}
+
+.j-scanlines {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: repeating-linear-gradient(180deg, transparent 0, transparent 2px, rgba(0, 0, 0, 0.14) 3px);
+  mix-blend-mode: multiply;
+}
+
+@keyframes j-sheen {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(450%);
+  }
+}

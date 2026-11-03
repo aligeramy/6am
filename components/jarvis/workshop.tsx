@@ -12,6 +12,7 @@ import { HudButton, IconButton } from "./hud"
 import { Modal, ModalHeader } from "./quick-log"
 
 const SUGGESTIONS = [
+  "Switch to the glass style",
   "Make it red and gold like the Iron Man suit",
   "Minimize everything except Habits and Ideas",
   "Rename Spirit to Faith",
@@ -22,6 +23,8 @@ const SUGGESTIONS = [
 
 const SECTION_LABEL: Record<SectionId, string> = {
   greeting: "Greeting",
+  today: "Today",
+  insights: "Insights",
   habits: "Habits",
   missions: "Missions",
   ideas: "Ideas",
@@ -164,12 +167,12 @@ function AskTab({ online }: { online: boolean }) {
             type="button"
             onClick={() => (listening ? voice.cancelCommand() : voice.beginCommand((t) => send(t)))}
             className={cn(
-              "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
+              "keep-round relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
               listening ? "bg-[var(--j-cyan)] text-[var(--j-bg)] shadow-[0_0_24px_var(--j-cyan)]" : "bg-[rgba(var(--j-cyan-rgb),0.12)] text-[var(--j-ice)]",
             )}
             aria-label={listening ? "Stop listening" : "Speak to the Workshop"}
           >
-            {listening && <span className="absolute inset-0 rounded-full border border-[var(--j-cyan)]" style={{ animation: "j-ring 1.6s ease-out infinite" }} />}
+            {listening && <span className="keep-round absolute inset-0 rounded-full border border-[var(--j-cyan)]" style={{ animation: "j-ring 1.6s ease-out infinite" }} />}
             <Mic className="relative h-4 w-4" />
           </button>
           <input
@@ -233,6 +236,31 @@ function ControlsTab() {
   }
   return (
     <div className="space-y-6 px-5 py-5">
+      <section className="space-y-3">
+        <div className="hud-label">Style</div>
+        <div className="grid grid-cols-2 gap-2">
+          {(
+            [
+              ["hud", "Classic HUD", "Angular frames, scanlines, segmented meters"],
+              ["glass", "Glass", "Soft rounded cards, calmer"],
+            ] as const
+          ).map(([id, name, desc]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => updateAppearance({ style: id })}
+              className={cn(
+                "inset-panel p-3 text-left transition-all",
+                a.style === id ? "border-[rgba(var(--j-cyan-rgb),0.6)] bg-[rgba(var(--j-cyan-rgb),0.1)]" : "hover:border-[var(--j-line-strong)]",
+              )}
+            >
+              <div className={cn("text-[0.9rem] font-semibold", a.style === id ? "text-white" : "text-[var(--j-muted)]")}>{name}</div>
+              <div className="text-[0.72rem] text-[var(--j-faint)]">{desc}</div>
+            </button>
+          ))}
+        </div>
+      </section>
+
       <section className="space-y-3">
         <div className="hud-label">Color</div>
         <div className="flex flex-wrap gap-2">

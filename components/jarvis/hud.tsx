@@ -16,12 +16,15 @@ export function HudPanel({
   right,
   onClick,
   section,
+  index,
 }: {
   children: ReactNode
   className?: string
   title?: ReactNode
   right?: ReactNode
   onClick?: () => void
+  /** "01"-style tag shown before the title in the HUD style. */
+  index?: string
   /** Makes the card minimizable and lets the Workshop rename it. */
   section?: SectionId
 }) {
@@ -43,7 +46,10 @@ export function HudPanel({
     >
       {(label || right || section) && (
         <header className={cn("relative z-[1] flex items-center justify-between gap-2 px-4 pt-3.5", collapsed && "pb-3.5")}>
-          <div className="hud-label min-w-0 truncate">{label}</div>
+          <div className="hud-label min-w-0 truncate">
+            {index && <span className="hud-index">{index} //</span>}
+            {label}
+          </div>
           <div className="flex shrink-0 items-center gap-1">
             {right}
             {section && (
@@ -157,6 +163,27 @@ export function Ring({
 export function Bar({ value, warn = true, tone: toneOverride, marker, className }: { value: number; warn?: boolean; tone?: string; marker?: number; className?: string }) {
   const pct = Math.max(0, Math.min(1, value)) * 100
   const tone = toneOverride ?? (!warn || value >= 0.5 ? "var(--j-cyan)" : "var(--j-amber)")
+  const hud = useJarvis((s) => s.appearance.style === "hud")
+  if (hud) {
+    // Classic segmented meter
+    const segments = 20
+    const lit = Math.round((pct / 100) * segments)
+    return (
+      <div className={cn("relative flex h-[7px] w-full gap-[2px]", className)} role="meter" aria-valuenow={Math.round(value * 100)} aria-valuemin={0} aria-valuemax={100}>
+        {Array.from({ length: segments }, (_, i) => (
+          <motion.span
+            key={i}
+            className="flex-1"
+            initial={{ opacity: 0.2 }}
+            animate={{ opacity: 1, background: i < lit ? tone : "rgba(var(--j-cyan-rgb),0.1)" }}
+            transition={{ delay: i * 0.02, duration: 0.3 }}
+            style={{ boxShadow: i < lit ? `0 0 5px ${tone}` : undefined }}
+          />
+        ))}
+        {marker !== undefined && <span className="absolute -top-[3px] h-[13px] w-[2px] bg-white/80" style={{ left: `${marker * 100}%` }} title="Month elapsed" />}
+      </div>
+    )
+  }
   return (
     <div
       className={cn("relative h-[5px] w-full rounded-full bg-[rgba(var(--j-cyan-rgb),0.08)]", className)}
@@ -218,12 +245,15 @@ export function Sparkline({
   format = (v: number) => String(v),
   target,
   className,
+  fit = false,
 }: {
   data: { date: string; value: number | null }[]
   height?: number
   format?: (v: number) => string
   target?: number
   className?: string
+  /** Scale to the data's own range instead of starting at zero (better for trends). */
+  fit?: boolean
 }) {
   const id = useId().replace(/:/g, "")
   const [hover, setHover] = useState<number | null>(null)
@@ -231,10 +261,13 @@ export function Sparkline({
   const H = height
   const pad = 5
   const vals = data.map((d) => d.value).filter((v): v is number => v !== null)
-  const max = Math.max(1, target ?? 0, ...vals) * 1.12
+  const hi = Math.max(1, target ?? 0, ...vals)
+  const lo = fit && vals.length ? Math.min(...vals) : 0
+  const span = fit ? Math.max(4, hi - lo) * 1.2 : hi * 1.12
+  const base = fit ? lo - (span - (hi - lo)) / 2 : 0
   const n = data.length
   const x = (i: number) => (n <= 1 ? W / 2 : pad + (i / (n - 1)) * (W - pad * 2))
-  const y = (v: number) => H - pad - (v / max) * (H - pad * 2)
+  const y = (v: number) => H - pad - ((v - base) / span) * (H - pad * 2)
 
   // One continuous line through the logged days; empty days are skipped rather than breaking it.
   const pts = data.flatMap((d, i) => (d.value === null ? [] : [[x(i), y(d.value)] as [number, number]]))
