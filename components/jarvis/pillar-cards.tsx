@@ -110,6 +110,7 @@ export function PillarCard({ pillar, score }: { pillar: PillarId; score: number 
     <HudPanel
       onClick={() => useJarvis.getState().setUI({ activePillar: pillar })}
       title={def.name}
+      section={pillar as "health" | "wealth" | "career" | "mind" | "spirit"}
       right={
         <div className="flex items-center gap-1">
           <button

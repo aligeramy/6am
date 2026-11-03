@@ -1,6 +1,6 @@
 import { format } from "date-fns"
 import { daysUntil, lastNDays, todayKey } from "./dates"
-import { PILLARS } from "./pillars"
+import { METRIC_BY_ID, PILLARS } from "./pillars"
 import {
   dayValue,
   formatMinutes,
@@ -134,8 +134,50 @@ export function buildSnapshot(data: JarvisData): string {
 
   const recent = [...data.journal].sort((a, b) => b.ts - a.ts).slice(0, 5)
   if (recent.length) lines.push(`RECENT JOURNAL: ${recent.map((j) => `[${j.kind} ${j.date}] ${j.text.slice(0, 140)}`).join(" || ")}`)
+  if (data.ideas.length) {
+    const fmtIdea = (i: JarvisData["ideas"][number]) =>
+      `"${i.title}" [${i.rating ? `${i.rating}★` : "unrated"}, ${i.status}${i.tags.length ? `, #${i.tags.join(" #")}` : ""}${i.notes.length ? `, ${i.notes.length} notes` : ""}]`
+    const top = [...data.ideas].sort((a, b) => b.rating - a.rating || b.updatedAt - a.updatedAt).slice(0, 12)
+    lines.push(`IDEAS (${data.ideas.length} total, best first): ${top.map(fmtIdea).join("; ")}`)
+  }
   if (st.vision) lines.push(`LIFE VISION: ${st.vision}`)
   if (st.values.length) lines.push(`CORE VALUES: ${st.values.join(", ")}`)
 
+  return lines.join("\n")
+}
+
+/** What the Workshop sees: the current look and layout, plus recent records with ids it can fix. */
+export function buildWorkshopSnapshot(data: JarvisData): string {
+  const a = data.appearance
+  const now = new Date()
+  const lines: string[] = []
+  const label = (id: string) => {
+    const pref = a.sections[id as keyof typeof a.sections] || {}
+    const flags = [pref.title && `titled "${pref.title}"`, pref.hidden && "hidden", pref.collapsed && "minimized"].filter(Boolean)
+    return flags.length ? `${id} (${flags.join(", ")})` : id
+  }
+  lines.push(`NOW: ${format(now, "EEEE yyyy-MM-dd HH:mm")} (user's local time). Address the user as "${data.settings.address}".`)
+  lines.push(`THEME: accent ${a.accent}, warning ${a.warning}, danger ${a.danger}, background ${a.background}, font scale ${a.fontScale}`)
+  lines.push(`LAYOUT: left column (top to bottom): ${a.left.map(label).join(", ")}; right column: ${a.right.map(label).join(", ")}. The arc reactor and the conversation sit in the middle and can't be moved.`)
+  lines.push(`CUSTOM CSS: ${a.customCss ? `\n${a.customCss.slice(0, 4000)}` : "(none)"}`)
+
+  const since = lastNDays(21)[0]
+  const logs = data.logs.filter((l) => l.date >= since).sort((x, y) => x.date.localeCompare(y.date) || x.ts - y.ts)
+  lines.push(`LOGGED ENTRIES since ${since} (id | date | metric | value | note):`)
+  for (const l of logs.slice(-250)) lines.push(`  ${l.id} | ${l.date} | ${l.metric} | ${l.value}${METRIC_BY_ID[l.metric]?.unit ? ` ${METRIC_BY_ID[l.metric].unit}` : ""}${l.note ? ` | ${l.note.slice(0, 60)}` : ""}`)
+  const tx = data.transactions.filter((t) => t.date >= since).sort((x, y) => x.date.localeCompare(y.date))
+  lines.push(`TRANSACTIONS since ${since} (id | date | kind | amount | category | note):`)
+  for (const t of tx.slice(-150)) lines.push(`  ${t.id} | ${t.date} | ${t.kind} | ${t.amount} | ${t.category}${t.note ? ` | ${t.note.slice(0, 60)}` : ""}`)
+  const journal = [...data.journal].sort((x, y) => y.ts - x.ts).slice(0, 30)
+  if (journal.length) {
+    lines.push(`JOURNAL (newest first; id | date | kind | text):`)
+    for (const j of journal) lines.push(`  ${j.id} | ${j.date} | ${j.kind} | ${j.text.slice(0, 80)}`)
+  }
+  if (data.ideas.length) {
+    lines.push(`IDEAS (id | rating | status | title):`)
+    for (const i of data.ideas.slice(0, 80)) lines.push(`  ${i.id} | ${i.rating || "-"} | ${i.status} | ${i.title.slice(0, 80)}`)
+  }
+  lines.push(`HABITS: ${data.habits.map((h) => h.name).join(", ") || "(none)"}`)
+  lines.push(`MISSIONS: ${data.missions.map((m) => `${m.title} (${m.status}, ${m.progress}%)`).join("; ") || "(none)"}`)
   return lines.join("\n")
 }

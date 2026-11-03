@@ -1,12 +1,13 @@
-/* ───────────────────────── J.A.R.V.I.S. HUD theme ───────────────────────── */
+/* ───────────────────────── J.A.R.E.D. HUD theme ───────────────────────── */
 
 .jarvis-root {
   --j-cyan: #29e6ff;
   --j-cyan-rgb: 41, 230, 255;
-  --j-ice: #c4f7ff;
-  --j-text: #e3f8fc;
-  --j-muted: #86b3bf;
-  --j-faint: #4a7380;
+  /* Everything below derives from the accent, so one theme color restyles the whole HUD. */
+  --j-ice: color-mix(in srgb, var(--j-cyan) 30%, white);
+  --j-text: color-mix(in srgb, var(--j-cyan) 8%, #eef4f6);
+  --j-muted: color-mix(in srgb, var(--j-cyan) 30%, #8796a0);
+  --j-faint: color-mix(in srgb, var(--j-cyan) 24%, #4b5a62);
   --j-bg: #01060b;
   --j-amber: #ffb547;
   --j-red: #ff5a6e;
@@ -19,8 +20,8 @@
   position: relative;
   min-height: 100dvh;
   background:
-    radial-gradient(1100px 700px at 50% 30%, rgba(0, 130, 170, 0.13), transparent 62%),
-    radial-gradient(900px 600px at 50% 115%, rgba(0, 80, 120, 0.16), transparent 60%),
+    radial-gradient(1100px 700px at 50% 30%, rgba(var(--j-cyan-rgb), 0.09), transparent 62%),
+    radial-gradient(900px 600px at 50% 115%, rgba(var(--j-cyan-rgb), 0.07), transparent 60%),
     var(--j-bg);
   color: var(--j-text);
   font-family: var(--font-jarvis-body), "Exo 2", system-ui, sans-serif;
@@ -60,7 +61,7 @@
 .glass {
   position: relative;
   border-radius: 20px;
-  background: linear-gradient(165deg, rgba(40, 130, 160, 0.12), rgba(6, 22, 32, 0.5) 55%, rgba(3, 12, 18, 0.6));
+  background: linear-gradient(165deg, rgba(var(--j-cyan-rgb), 0.07), color-mix(in srgb, var(--j-bg) 80%, rgba(var(--j-cyan-rgb), 0.25)) 55%, color-mix(in srgb, var(--j-bg) 88%, transparent));
   border: 1px solid rgba(var(--j-cyan-rgb), 0.08);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
@@ -80,7 +81,7 @@
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(180deg, rgba(140, 240, 255, 0.28), rgba(140, 240, 255, 0.04) 40%, transparent 70%);
+  background: linear-gradient(180deg, rgba(var(--j-cyan-rgb), 0.32), rgba(var(--j-cyan-rgb), 0.05) 40%, transparent 70%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -149,13 +150,13 @@
   outline-offset: 2px;
 }
 .hud-btn[data-variant="solid"] {
-  background: linear-gradient(180deg, #5cefff, #1fc8e6);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--j-cyan) 70%, white), var(--j-cyan));
   border-color: transparent;
-  color: #00141b;
+  color: color-mix(in srgb, var(--j-cyan) 15%, black);
   box-shadow: 0 6px 24px -8px rgba(var(--j-cyan-rgb), 0.8);
 }
 .hud-btn[data-variant="solid"]:hover {
-  background: linear-gradient(180deg, #7ff3ff, #2fd6f2);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--j-cyan) 55%, white), color-mix(in srgb, var(--j-cyan) 85%, white));
   box-shadow: 0 8px 30px -6px rgba(var(--j-cyan-rgb), 0.9);
 }
 .hud-btn[data-variant="danger"] {
@@ -207,7 +208,7 @@
 .hud-input {
   width: 100%;
   border-radius: 12px;
-  background: rgba(2, 16, 24, 0.55);
+  background: color-mix(in srgb, var(--j-bg) 70%, transparent);
   border: 1px solid rgba(var(--j-cyan-rgb), 0.12);
   color: var(--j-text);
   padding: 0.6rem 0.8rem;
@@ -224,7 +225,7 @@
 .hud-input:focus {
   outline: none;
   border-color: rgba(var(--j-cyan-rgb), 0.5);
-  background: rgba(2, 20, 30, 0.75);
+  background: color-mix(in srgb, var(--j-bg) 85%, transparent);
   box-shadow: 0 0 0 4px rgba(var(--j-cyan-rgb), 0.08);
 }
 .hud-input option {

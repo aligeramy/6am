@@ -3,9 +3,14 @@
 import { METRIC_BY_ID, PILLAR_BY_ID } from "./pillars"
 import { useJarvis } from "./store"
 import { formatMinutes, formatMoney } from "./scoring"
-import type { ChatAction, JarvisAction, PillarId } from "./types"
+import { DEFAULT_APPEARANCE } from "./store"
+import type { ChatAction, IdeaStatus, JarvisAction, PillarId, SectionId } from "./types"
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim()
+
+// Words people say around a name ("the podcast idea", "my cold shower habit") that shouldn't affect matching.
+const FILLER = new Set(["the", "my", "a", "an", "that", "this", "idea", "habit", "mission", "project", "one", "about", "for", "on", "of", "to"])
+const core = (s: string) => norm(s).split(" ").filter((w) => !FILLER.has(w)).join(" ")
 
 /** Best fuzzy match by token overlap; returns null if nothing is close. */
 export function fuzzyFind<T>(items: T[], query: string, key: (t: T) => string): T | null {
@@ -13,14 +18,19 @@ export function fuzzyFind<T>(items: T[], query: string, key: (t: T) => string): 
   if (!q) return null
   const exact = items.find((i) => norm(key(i)) === q)
   if (exact) return exact
-  const contains = items.find((i) => norm(key(i)).includes(q) || q.includes(norm(key(i))))
+  const qc = core(query) || q
+  const contains = items.find((i) => {
+    const k = norm(key(i))
+    return k.includes(qc) || qc.includes(k)
+  })
   if (contains) return contains
-  const qTokens = new Set(q.split(" ").filter((t) => t.length > 2))
+  const qTokens = new Set(qc.split(" ").filter((t) => t.length > 2))
   let best: T | null = null
   let bestScore = 0
   for (const item of items) {
-    const tokens = norm(key(item)).split(" ")
-    const score = tokens.filter((t) => qTokens.has(t)).length / Math.max(1, tokens.length)
+    const tokens = core(key(item)).split(" ").filter(Boolean)
+    const hits = tokens.filter((t) => qTokens.has(t)).length
+    const score = hits / Math.max(1, Math.min(tokens.length, qTokens.size))
     if (score > bestScore) {
       best = item
       bestScore = score
@@ -31,8 +41,32 @@ export function fuzzyFind<T>(items: T[], query: string, key: (t: T) => string): 
 
 const isPillar = (p: unknown): p is PillarId => typeof p === "string" && p in PILLAR_BY_ID
 const isDate = (d: unknown): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)
+const isHex = (c: unknown): c is string => typeof c === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(c.trim())
+const SECTIONS: SectionId[] = [...DEFAULT_APPEARANCE.left, ...DEFAULT_APPEARANCE.right]
+const SECTION_NAMES: Record<SectionId, string> = {
+  greeting: "Greeting",
+  habits: "Habits",
+  missions: "Missions",
+  ideas: "Ideas",
+  health: "Health",
+  wealth: "Wealth",
+  career: "Career",
+  mind: "Mind",
+  spirit: "Spirit",
+}
+const stars = (n: number) => "★".repeat(n) + "☆".repeat(5 - n)
 
-/** Apply one action to the store and describe what happened (shown as a chip under JARVIS's reply). */
+/** Strip anything in custom CSS that could load remote content or break out of the style tag. */
+export function sanitizeCss(css: string) {
+  return css
+    .replace(/<\/?style[^>]*>/gi, "")
+    .replace(/@import[^;]*;?/gi, "")
+    .replace(/url\s*\([^)]*\)/gi, "none")
+    .replace(/expression\s*\(/gi, "(")
+    .slice(0, 20000)
+}
+
+/** Apply one action to the store and describe what happened (shown as a chip under Jared's reply). */
 export function applyAction(action: JarvisAction): ChatAction {
   const s = useJarvis.getState()
   const cur = s.settings.currency
@@ -141,10 +175,142 @@ export function applyAction(action: JarvisAction): ChatAction {
         return { ok: true, label: `Net worth · ${formatMoney(action.amount, cur)}` }
       }
       case "open_panel": {
+        if (action.pillar === "workshop") {
+          s.setUI({ workshopOpen: true })
+          return { ok: true, label: "Opened the Workshop" }
+        }
+        if (action.pillar === "ideas") {
+          s.setUI({ activePillar: "ideas" })
+          return { ok: true, label: "Opened Ideas" }
+        }
         if (!isPillar(action.pillar)) return { ok: false, label: "Unknown panel" }
         s.setUI({ activePillar: action.pillar })
         return { ok: true, label: `Opened ${PILLAR_BY_ID[action.pillar].name}` }
       }
+
+      /* ───── Ideas ───── */
+      case "create_idea": {
+        if (!action.title?.trim()) return { ok: false, label: "Idea needs a title" }
+        const rating = Number.isFinite(action.rating) ? Math.max(0, Math.min(5, Math.round(action.rating!))) : 0
+        s.addIdea({ title: action.title, note: action.note, rating, tags: action.tags })
+        return { ok: true, label: `Idea · ${action.title.trim().slice(0, 40)}${rating ? ` ${stars(rating)}` : ""}` }
+      }
+      case "rate_idea": {
+        const idea = fuzzyFind(s.ideas, action.idea, (x) => x.title)
+        if (!idea) return { ok: false, label: `No idea matching "${action.idea}"` }
+        const rating = Math.max(0, Math.min(5, Math.round(action.rating)))
+        s.updateIdea(idea.id, { rating })
+        return { ok: true, label: `${idea.title.slice(0, 32)} · ${stars(rating)}` }
+      }
+      case "annotate_idea": {
+        const idea = fuzzyFind(s.ideas, action.idea, (x) => x.title)
+        if (!idea) return { ok: false, label: `No idea matching "${action.idea}"` }
+        if (!action.note?.trim()) return { ok: false, label: "Empty note" }
+        s.addIdeaNote(idea.id, action.note)
+        return { ok: true, label: `Note added · ${idea.title.slice(0, 32)}` }
+      }
+      case "update_idea": {
+        const idea = fuzzyFind(s.ideas, action.idea, (x) => x.title)
+        if (!idea) return { ok: false, label: `No idea matching "${action.idea}"` }
+        const statuses: IdeaStatus[] = ["new", "exploring", "doing", "parked", "done"]
+        s.updateIdea(idea.id, {
+          ...(action.title?.trim() ? { title: action.title.trim() } : {}),
+          ...(action.status && statuses.includes(action.status) ? { status: action.status } : {}),
+          ...(action.tags ? { tags: action.tags } : {}),
+        })
+        return { ok: true, label: `Idea updated · ${idea.title.slice(0, 32)}` }
+      }
+      case "delete_idea": {
+        const idea = fuzzyFind(s.ideas, action.idea, (x) => x.title)
+        if (!idea) return { ok: false, label: `No idea matching "${action.idea}"` }
+        s.deleteIdea(idea.id)
+        return { ok: true, label: `Deleted idea · ${idea.title.slice(0, 32)}` }
+      }
+
+      /* ───── Workshop ───── */
+      case "set_theme": {
+        const patch: Record<string, unknown> = {}
+        for (const k of ["accent", "warning", "danger", "background"] as const) {
+          if (action[k] !== undefined) {
+            if (!isHex(action[k])) return { ok: false, label: `${k} must be a hex color` }
+            patch[k] = action[k]!.trim()
+          }
+        }
+        if (action.font_scale !== undefined) patch.fontScale = Math.max(0.85, Math.min(1.3, action.font_scale))
+        if (!Object.keys(patch).length) return { ok: false, label: "No theme change" }
+        s.updateAppearance(patch)
+        return { ok: true, label: `Theme · ${Object.entries(patch).map(([k, v]) => `${k} ${v}`).join(", ")}` }
+      }
+      case "update_section": {
+        if (!SECTIONS.includes(action.section)) return { ok: false, label: `Unknown section ${action.section}` }
+        const pref: Record<string, unknown> = {}
+        if (action.title !== undefined) pref.title = action.title.trim() || undefined
+        if (action.hidden !== undefined) pref.hidden = action.hidden
+        if (action.collapsed !== undefined) pref.collapsed = action.collapsed
+        if (Object.keys(pref).length) s.setSection(action.section, pref)
+        if (action.column || action.position) {
+          const col = action.column ?? (s.appearance.left.includes(action.section) ? "left" : "right")
+          s.moveSection(action.section, col, action.position)
+        }
+        const bits = [
+          action.title !== undefined && `renamed "${action.title}"`,
+          action.hidden !== undefined && (action.hidden ? "hidden" : "shown"),
+          action.collapsed !== undefined && (action.collapsed ? "minimized" : "expanded"),
+          (action.column || action.position) && `moved${action.column ? ` to ${action.column}` : ""}${action.position ? ` #${action.position}` : ""}`,
+        ].filter(Boolean)
+        return { ok: true, label: `${SECTION_NAMES[action.section]} · ${bits.join(", ") || "updated"}` }
+      }
+      case "set_custom_css": {
+        const css = sanitizeCss(action.css || "")
+        const next = action.mode === "append" ? `${s.appearance.customCss}\n${css}`.trim() : css
+        s.updateAppearance({ customCss: next })
+        return { ok: true, label: css ? "Custom styling applied" : "Custom styling cleared" }
+      }
+      case "reset_appearance": {
+        s.resetAppearance()
+        return { ok: true, label: "Appearance reset to default" }
+      }
+      case "delete_entries": {
+        const n = s.deleteEntries(Array.isArray(action.ids) ? action.ids : [])
+        return { ok: n > 0, label: n > 0 ? `Deleted ${n} entr${n === 1 ? "y" : "ies"}` : "No matching entries" }
+      }
+      case "edit_entry": {
+        const log = s.logs.find((l) => l.id === action.id)
+        const tx = s.transactions.find((t) => t.id === action.id)
+        if (!log && !tx) return { ok: false, label: "Entry not found" }
+        if (log) {
+          useJarvis.setState({
+            logs: s.logs.map((l) =>
+              l.id === log.id
+                ? {
+                    ...l,
+                    ...(Number.isFinite(action.value) ? { value: action.value! } : {}),
+                    ...(isDate(action.date) ? { date: action.date } : {}),
+                    ...(action.note !== undefined ? { note: action.note } : {}),
+                  }
+                : l,
+            ),
+          })
+          return { ok: true, label: `Edited ${METRIC_BY_ID[log.metric]?.label ?? log.metric} entry` }
+        }
+        useJarvis.setState({
+          transactions: s.transactions.map((t) =>
+            t.id === tx!.id
+              ? {
+                  ...t,
+                  ...(Number.isFinite(action.amount ?? action.value) ? { amount: Math.abs((action.amount ?? action.value)!) } : {}),
+                  ...(isDate(action.date) ? { date: action.date } : {}),
+                  ...(action.note !== undefined ? { note: action.note } : {}),
+                  ...(action.category ? { category: action.category.toLowerCase() } : {}),
+                }
+              : t,
+          ),
+        })
+        return { ok: true, label: `Edited ${tx!.kind} entry` }
+      }
+      case "ask_user":
+        // Rendered as quick-reply buttons under the message; nothing to change.
+        return { ok: true, label: "" }
     }
   } catch (e) {
     return { ok: false, label: e instanceof Error ? e.message : "Action failed" }

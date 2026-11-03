@@ -1,6 +1,6 @@
 "use client"
 
-/* Browser voice I/O: Web Speech synthesis for JARVIS's voice and SpeechRecognition for yours.
+/* Browser voice I/O: Web Speech synthesis for Jared's voice and SpeechRecognition for yours.
    Kept as a small singleton so every component sees the same state. */
 
 export type VoiceState = "off" | "wake" | "command" | "thinking" | "speaking"
@@ -31,7 +31,8 @@ const PREFERRED_VOICES = [
   "en-GB",
 ]
 
-const WAKE = /\b(?:hey\s+|ok(?:ay)?\s+|yo\s+)?(jarvis|jervis|jarvis's)\b/i
+// "Jared" is often transcribed as Jarod, Jarred, Jerod… and the old name still works.
+const WAKE = /\b(?:hey\s+|ok(?:ay)?\s+|yo\s+)?(jared|jarred|jarod|jarrod|jerod|jerrod|jarid|jared's|jarvis)\b/i
 
 class VoiceEngine {
   state: VoiceState = "off"
@@ -45,6 +46,8 @@ class VoiceEngine {
   private wantCommand = false
   private commandTimer: ReturnType<typeof setTimeout> | null = null
   private onCommand: ((text: string) => void) | null = null
+  /** Handler for the next command only (e.g. the Workshop's mic), instead of the main one. */
+  private oneShot: ((text: string) => void) | null = null
   private levelTimer: ReturnType<typeof setInterval> | null = null
 
   get recognitionSupported() {
@@ -101,7 +104,7 @@ class VoiceEngine {
     if (!this.synthesisSupported || opts.enabled === false || !text.trim()) return Promise.resolve()
     const synth = window.speechSynthesis
     synth.cancel()
-    // Stop listening while speaking so JARVIS doesn't hear himself.
+    // Stop listening while speaking so Jared doesn't hear himself.
     this.pauseRecognition()
     return new Promise((resolve) => {
       const u = new SpeechSynthesisUtterance(text.replace(/[*_#`>]/g, ""))
@@ -239,11 +242,14 @@ class VoiceEngine {
     if (this.commandTimer) clearTimeout(this.commandTimer)
     this.setState(this.wakeArmed ? "wake" : "off")
     if (!this.wakeArmed) this.rec?.stop()
-    this.onCommand?.(text)
+    const handler = this.oneShot ?? this.onCommand
+    this.oneShot = null
+    handler?.(text)
   }
 
   /** Listen for one spoken command (mic button, or after the wake word). */
-  beginCommand() {
+  beginCommand(handler?: (text: string) => void) {
+    this.oneShot = handler ?? null
     if (!this.recognitionSupported) {
       this.error = "Voice input isn't supported in this browser. Try Chrome, Edge or Safari."
       this.emit()
@@ -257,6 +263,7 @@ class VoiceEngine {
     if (this.commandTimer) clearTimeout(this.commandTimer)
     this.commandTimer = setTimeout(() => {
       if (this.wantCommand) {
+        this.oneShot = null
         this.wantCommand = false
         this.interim = ""
         this.setState(this.wakeArmed ? "wake" : "off")
@@ -266,6 +273,7 @@ class VoiceEngine {
   }
 
   cancelCommand() {
+    this.oneShot = null
     this.wantCommand = false
     this.interim = ""
     if (this.commandTimer) clearTimeout(this.commandTimer)

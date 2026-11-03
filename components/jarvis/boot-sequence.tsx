@@ -47,7 +47,7 @@ export function BootSequence({
 
   const lines = useMemo(
     () => [
-      { text: "J.A.R.V.I.S. LIFE OS v6.0.0", status: "" },
+      { text: "J.A.R.E.D. LIFE OS v7.0", status: "" },
       { text: "INITIALIZING CORE KERNEL", status: "OK" },
       { text: "CALIBRATING HOLOGRAPHIC DISPLAY", status: "OK" },
       ...PILLARS.map((p) => ({
@@ -171,8 +171,8 @@ export function BootSequence({
         <AnimatePresence mode="wait">
           {phase === "gate" && (
             <motion.div key="gate" exit={{ opacity: 0 }} className="mt-6 flex w-full flex-col items-center gap-4 text-center">
-              <div className="font-hud text-glow text-xl font-bold tracking-[0.45em] text-[var(--j-ice)] sm:text-2xl">J.A.R.V.I.S.</div>
-              <div className="font-mono-hud text-[0.65rem] uppercase tracking-[0.3em] text-[var(--j-muted)]">Just A Rather Very Intelligent System</div>
+              <div className="font-hud text-glow text-xl font-bold tracking-[0.45em] text-[var(--j-ice)] sm:text-2xl">J.A.R.E.D.</div>
+              <div className="font-mono-hud text-[0.65rem] uppercase tracking-[0.3em] text-[var(--j-muted)]">Just A Rather Extraordinary Digital assistant</div>
               {passcode ? (
                 <form
                   className="flex w-full max-w-[280px] flex-col gap-2"
@@ -216,7 +216,7 @@ export function BootSequence({
                 <span className="hud-label">Booting systems</span>
                 <span className="font-mono-hud text-[0.7rem] text-[var(--j-cyan)]">{progress}%</span>
               </div>
-              <div className="h-[3px] w-full bg-[rgba(41,230,255,0.1)]">
+              <div className="h-[3px] w-full bg-[rgba(var(--j-cyan-rgb),0.1)]">
                 <div className="h-full bg-[var(--j-cyan)] shadow-[0_0_10px_var(--j-cyan)] transition-all duration-300" style={{ width: `${progress}%` }} />
               </div>
               <div className="font-mono-hud mt-3 truncate text-center text-[0.65rem] text-[var(--j-muted)] md:hidden">

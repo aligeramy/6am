@@ -4,14 +4,18 @@ import { create } from "zustand"
 import { createJSONStorage, persist } from "zustand/middleware"
 import { todayKey, uid } from "./dates"
 import type {
+  Appearance,
   ChatMessage,
   Habit,
+  Idea,
   JarvisData,
   JournalEntry,
   LogEntry,
   Mission,
-  PillarId,
+  PanelId,
   Project,
+  SectionId,
+  SectionPref,
   Settings,
   Transaction,
 } from "./types"
@@ -45,20 +49,47 @@ export const DEFAULT_SETTINGS: Settings = {
   },
 }
 
-const EMPTY: Omit<JarvisData, "settings"> = {
+export const DEFAULT_APPEARANCE: Appearance = {
+  accent: "#29e6ff",
+  warning: "#ffb547",
+  danger: "#ff5a6e",
+  background: "#01060b",
+  fontScale: 1,
+  customCss: "",
+  left: ["greeting", "habits", "missions", "ideas"],
+  right: ["health", "wealth", "career", "mind", "spirit"],
+  sections: {},
+}
+
+/** Keep stored layouts valid as sections are added in new versions. */
+const normalizeAppearance = (a?: Partial<Appearance>): Appearance => {
+  const merged = { ...DEFAULT_APPEARANCE, ...(a || {}), sections: { ...(a?.sections || {}) } }
+  const all = [...DEFAULT_APPEARANCE.left, ...DEFAULT_APPEARANCE.right]
+  const left = (merged.left || []).filter((id) => all.includes(id))
+  const right = (merged.right || []).filter((id) => all.includes(id) && !left.includes(id))
+  for (const id of all) if (!left.includes(id) && !right.includes(id)) (DEFAULT_APPEARANCE.left.includes(id) ? left : right).push(id)
+  return { ...merged, left, right }
+}
+
+const EMPTY: Omit<JarvisData, "settings" | "appearance"> = {
   logs: [],
   transactions: [],
   habits: [],
   missions: [],
   projects: [],
   journal: [],
+  ideas: [],
   chat: [],
+  workshop: [],
 }
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n))
 
 interface UIState {
-  activePillar: PillarId | null
+  activePillar: PanelId | null
+  workshopOpen: boolean
+  /** Idea to scroll to / expand when the Ideas sheet opens. */
+  focusIdea: string | null
   settingsOpen: boolean
   briefingOpen: boolean
   briefingText: string
@@ -86,6 +117,19 @@ interface Actions {
   updateSettings: (patch: Partial<Settings>) => void
   pushChat: (m: Omit<ChatMessage, "id" | "ts">) => ChatMessage
   clearChat: () => void
+  pushWorkshop: (m: Omit<ChatMessage, "id" | "ts">) => ChatMessage
+  clearWorkshop: () => void
+  addIdea: (i: { title: string; note?: string; rating?: number; tags?: string[] }) => Idea
+  updateIdea: (id: string, patch: Partial<Pick<Idea, "title" | "rating" | "status" | "tags">>) => void
+  addIdeaNote: (id: string, text: string) => void
+  deleteIdeaNote: (id: string, noteId: string) => void
+  deleteIdea: (id: string) => void
+  updateAppearance: (patch: Partial<Appearance>) => void
+  setSection: (id: SectionId, pref: Partial<SectionPref>) => void
+  moveSection: (id: SectionId, column: "left" | "right", position?: number) => void
+  resetAppearance: () => void
+  /** Removes logs, transactions, journal entries or ideas by id. */
+  deleteEntries: (ids: string[]) => number
   importData: (data: Partial<JarvisData>) => void
   resetAll: () => void
   setUI: (patch: Partial<UIState>) => void
@@ -104,7 +148,10 @@ export const useJarvis = create<JarvisStore>()(
     (set, get) => ({
       ...EMPTY,
       settings: DEFAULT_SETTINGS,
+      appearance: DEFAULT_APPEARANCE,
       activePillar: null,
+      workshopOpen: false,
+      focusIdea: null,
       settingsOpen: false,
       briefingOpen: false,
       briefingText: "",
@@ -249,6 +296,80 @@ export const useJarvis = create<JarvisStore>()(
         return msg
       },
       clearChat: () => set({ chat: [] }),
+      pushWorkshop: (m) => {
+        const msg: ChatMessage = { ...m, id: uid(), ts: Date.now() }
+        set((s) => ({ workshop: [...s.workshop, msg].slice(-60) }))
+        return msg
+      },
+      clearWorkshop: () => set({ workshop: [] }),
+
+      addIdea: ({ title, note, rating, tags }) => {
+        const now = Date.now()
+        const idea: Idea = {
+          id: uid(),
+          title: title.trim(),
+          rating: clamp(Math.round(rating ?? 0), 0, 5),
+          status: "new",
+          tags: (tags || []).map((t) => t.trim().toLowerCase()).filter(Boolean),
+          notes: note?.trim() ? [{ id: uid(), text: note.trim(), ts: now }] : [],
+          createdAt: now,
+          updatedAt: now,
+        }
+        set((s) => ({ ideas: [idea, ...s.ideas] }))
+        return idea
+      },
+      updateIdea: (id, patch) =>
+        set((s) => ({
+          ideas: s.ideas.map((i) =>
+            i.id === id
+              ? {
+                  ...i,
+                  ...patch,
+                  rating: patch.rating !== undefined ? clamp(Math.round(patch.rating), 0, 5) : i.rating,
+                  tags: patch.tags ? patch.tags.map((t) => t.trim().toLowerCase()).filter(Boolean) : i.tags,
+                  updatedAt: Date.now(),
+                }
+              : i,
+          ),
+        })),
+      addIdeaNote: (id, text) =>
+        set((s) => ({
+          ideas: s.ideas.map((i) =>
+            i.id === id && text.trim() ? { ...i, notes: [...i.notes, { id: uid(), text: text.trim(), ts: Date.now() }], updatedAt: Date.now() } : i,
+          ),
+        })),
+      deleteIdeaNote: (id, noteId) =>
+        set((s) => ({ ideas: s.ideas.map((i) => (i.id === id ? { ...i, notes: i.notes.filter((n) => n.id !== noteId) } : i)) })),
+      deleteIdea: (id) => set((s) => ({ ideas: s.ideas.filter((i) => i.id !== id) })),
+
+      updateAppearance: (patch) => set((s) => ({ appearance: normalizeAppearance({ ...s.appearance, ...patch }) })),
+      setSection: (id, pref) =>
+        set((s) => ({
+          appearance: { ...s.appearance, sections: { ...s.appearance.sections, [id]: { ...(s.appearance.sections[id] || {}), ...pref } } },
+        })),
+      moveSection: (id, column, position) =>
+        set((s) => {
+          const left = s.appearance.left.filter((x) => x !== id)
+          const right = s.appearance.right.filter((x) => x !== id)
+          const target = column === "left" ? left : right
+          const at = position === undefined ? target.length : clamp(Math.round(position) - 1, 0, target.length)
+          target.splice(at, 0, id)
+          return { appearance: { ...s.appearance, left, right } }
+        }),
+      resetAppearance: () => set({ appearance: DEFAULT_APPEARANCE }),
+      deleteEntries: (ids) => {
+        const kill = new Set(ids)
+        const s = get()
+        const before = s.logs.length + s.transactions.length + s.journal.length + s.ideas.length
+        set({
+          logs: s.logs.filter((x) => !kill.has(x.id)),
+          transactions: s.transactions.filter((x) => !kill.has(x.id)),
+          journal: s.journal.filter((x) => !kill.has(x.id)),
+          ideas: s.ideas.filter((x) => !kill.has(x.id)),
+        })
+        const t = get()
+        return before - (t.logs.length + t.transactions.length + t.journal.length + t.ideas.length)
+      },
 
       importData: (data) =>
         set((s) => ({
@@ -258,7 +379,10 @@ export const useJarvis = create<JarvisStore>()(
           missions: data.missions ?? s.missions,
           projects: data.projects ?? s.projects,
           journal: data.journal ?? s.journal,
+          ideas: data.ideas ?? s.ideas,
           chat: data.chat ?? s.chat,
+          workshop: data.workshop ?? s.workshop,
+          appearance: data.appearance ? normalizeAppearance(data.appearance) : s.appearance,
           settings: data.settings
             ? {
                 ...DEFAULT_SETTINGS,
@@ -268,7 +392,8 @@ export const useJarvis = create<JarvisStore>()(
               }
             : s.settings,
         })),
-      resetAll: () => set({ ...EMPTY, settings: { ...DEFAULT_SETTINGS, address: get().settings.address } }),
+      resetAll: () =>
+        set({ ...EMPTY, appearance: DEFAULT_APPEARANCE, settings: { ...DEFAULT_SETTINGS, address: get().settings.address, apiKey: get().settings.apiKey } }),
 
       setUI: (patch) => set(patch),
     }),
@@ -283,7 +408,10 @@ export const useJarvis = create<JarvisStore>()(
         missions: s.missions,
         projects: s.projects,
         journal: s.journal,
+        ideas: s.ideas,
         chat: s.chat,
+        workshop: s.workshop,
+        appearance: s.appearance,
         settings: s.settings,
       }),
       merge: (persisted, current) => {
@@ -291,6 +419,9 @@ export const useJarvis = create<JarvisStore>()(
         return {
           ...current,
           ...p,
+          ideas: p.ideas ?? [],
+          workshop: p.workshop ?? [],
+          appearance: normalizeAppearance(p.appearance),
           settings: {
             ...DEFAULT_SETTINGS,
             ...(p.settings || {}),
@@ -311,7 +442,10 @@ export const exportData = (): JarvisData => {
     missions: s.missions,
     projects: s.projects,
     journal: s.journal,
+    ideas: s.ideas,
     chat: s.chat,
+    workshop: s.workshop,
+    appearance: s.appearance,
     settings: s.settings,
   }
 }

@@ -1,7 +1,8 @@
 "use client"
 
 import { format, parseISO } from "date-fns"
-import { Check, Trash2 } from "lucide-react"
+import { Check, Lightbulb, Trash2 } from "lucide-react"
+import { IdeasBody } from "./ideas"
 import { useState, type ReactNode } from "react"
 import { daysUntil, lastNDays, prettyDate, todayKey } from "@/lib/jarvis/dates"
 import { METRIC_BY_ID, PILLAR_BY_ID, PILLARS, metricsFor } from "@/lib/jarvis/pillars"
@@ -131,7 +132,7 @@ function WealthBody() {
             {cats.map(([cat, v]) => (
               <li key={cat} className="group grid grid-cols-[6rem_1fr_auto] items-center gap-2 text-[0.75rem]" title={`${cat}: ${formatMoney(v, c)}`}>
                 <span className="truncate capitalize text-[var(--j-muted)]">{cat}</span>
-                <span className="h-2 bg-[rgba(41,230,255,0.08)]">
+                <span className="h-2 bg-[rgba(var(--j-cyan-rgb),0.08)]">
                   <span className="block h-full bg-[var(--j-cyan)] shadow-[0_0_6px_var(--j-cyan)] transition-all group-hover:bg-white" style={{ width: `${(v / maxCat) * 100}%` }} />
                 </span>
                 <span className="font-mono-hud text-[var(--j-ice)]">{formatMoney(v, c)}</span>
@@ -238,7 +239,7 @@ function CareerBody() {
                       step={5}
                       value={p.progress}
                       onChange={(e) => updateProject(p.id, { progress: parseInt(e.target.value, 10) })}
-                      className="w-full accent-[#29e6ff]"
+                      className="w-full"
                       aria-label="Progress"
                     />
                     <span className="font-mono-hud w-9 text-right text-[0.7rem] text-[var(--j-ice)]">{p.progress}%</span>
@@ -340,7 +341,7 @@ function HabitsBody() {
                             title={`${h.name} · ${d}${on ? " · done" : ""}`}
                             onClick={() => toggleHabit(h.id, d)}
                             className="block h-4 w-full min-w-[12px] transition hover:outline hover:outline-1 hover:outline-[var(--j-cyan)]"
-                            style={{ background: on ? "var(--j-cyan)" : "rgba(41,230,255,0.09)", boxShadow: on ? "0 0 6px rgba(41,230,255,0.6)" : undefined }}
+                            style={{ background: on ? "var(--j-cyan)" : "rgba(var(--j-cyan-rgb),0.09)", boxShadow: on ? "0 0 6px rgba(var(--j-cyan-rgb),0.6)" : undefined }}
                             aria-label={`${h.name} ${d} ${on ? "done" : "not done"}`}
                           />
                         </td>
@@ -490,7 +491,7 @@ function MissionsBody() {
                       step={5}
                       value={m.progress}
                       onChange={(e) => updateMission(m.id, { progress: parseInt(e.target.value, 10) })}
-                      className="w-full accent-[#29e6ff]"
+                      className="w-full"
                       aria-label="Progress"
                     />
                   </div>
@@ -519,7 +520,7 @@ function SpiritBody() {
       <Card title="Life vision" className="md:col-span-2">
         <textarea
           className="hud-input min-h-[80px] text-[0.9rem]"
-          placeholder="Who are you becoming? Write the one paragraph you want JARVIS to remind you of every morning."
+          placeholder="Who are you becoming? Write the one paragraph you want Jared to remind you of every morning."
           value={vision}
           onChange={(e) => setVision(e.target.value)}
           onBlur={() => update({ vision: vision.trim() })}
@@ -551,11 +552,29 @@ function SpiritBody() {
 
 export function PillarDetail({ scores }: { scores: Scores }) {
   const active = useJarvis((s) => s.activePillar)
-  const close = () => useJarvis.getState().setUI({ activePillar: null })
-  const def = active ? PILLAR_BY_ID[active] : null
+  const ideaCount = useJarvis((s) => s.ideas.length)
+  const close = () => useJarvis.getState().setUI({ activePillar: null, focusIdea: null })
+  const def = active && active !== "ideas" ? PILLAR_BY_ID[active] : null
   return (
     <Modal open={!!active} onClose={close} variant="sheet">
-      {def && active && (
+      {active === "ideas" && (
+        <>
+          <ModalHeader
+            title="IDEAS"
+            sub={`${ideaCount} idea${ideaCount === 1 ? "" : "s"} · capture, rate, annotate`}
+            onClose={close}
+            lead={
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--j-amber)_15%,transparent)] text-[var(--j-amber)]">
+                <Lightbulb className="h-5 w-5" />
+              </span>
+            }
+          />
+          <div className="p-4 sm:p-5">
+            <IdeasBody />
+          </div>
+        </>
+      )}
+      {def && active && active !== "ideas" && (
         <>
           <ModalHeader title={def.name.toUpperCase()} sub={def.tagline} onClose={close} lead={<Ring value={scores[active]} size={40} />} />
           <div className="p-4 sm:p-5">

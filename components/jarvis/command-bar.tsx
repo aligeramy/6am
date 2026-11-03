@@ -51,7 +51,7 @@ function Bubble({ m, latest }: { m: ChatMessage; latest: boolean }) {
         <div
           className={cn(
             "inline-block rounded-2xl px-3.5 py-2 text-left text-[0.92rem] leading-relaxed",
-            isUser ? "rounded-br-md bg-[rgba(41,230,255,0.1)] text-[var(--j-ice)]" : "rounded-bl-md text-[var(--j-text)]",
+            isUser ? "rounded-br-md bg-[rgba(var(--j-cyan-rgb),0.1)] text-[var(--j-ice)]" : "rounded-bl-md text-[var(--j-text)]",
           )}
         >
           {!isUser && <span className="mr-2 inline-block h-1.5 w-1.5 -translate-y-[2px] rounded-full bg-[var(--j-cyan)] shadow-[0_0_8px_var(--j-cyan)]" />}
@@ -67,9 +67,9 @@ function Bubble({ m, latest }: { m: ChatMessage; latest: boolean }) {
                 transition={{ delay: 0.15 + i * 0.06 }}
                 className="rounded-full border px-2 py-[2px] text-[0.7rem]"
                 style={{
-                  borderColor: a.ok ? "rgba(41,230,255,0.3)" : "rgba(255,181,71,0.4)",
+                  borderColor: a.ok ? "rgba(var(--j-cyan-rgb),0.3)" : "rgba(255,181,71,0.4)",
                   color: a.ok ? "var(--j-cyan)" : "var(--j-amber)",
-                  background: a.ok ? "rgba(41,230,255,0.06)" : "rgba(255,181,71,0.06)",
+                  background: a.ok ? "rgba(var(--j-cyan-rgb),0.06)" : "rgba(255,181,71,0.06)",
                 }}
               >
                 {a.ok ? "✓" : "!"} {a.label}
@@ -105,7 +105,7 @@ export function Conversation({ online, className, limit }: { online: boolean; cl
                 key={s}
                 type="button"
                 onClick={() => void sendCommand(s, online)}
-                className="rounded-full border border-[var(--j-line)] px-3 py-1 text-[0.78rem] text-[var(--j-muted)] transition-all duration-200 hover:border-[var(--j-line-strong)] hover:bg-[rgba(41,230,255,0.06)] hover:text-white"
+                className="rounded-full border border-[var(--j-line)] px-3 py-1 text-[0.78rem] text-[var(--j-muted)] transition-all duration-200 hover:border-[var(--j-line-strong)] hover:bg-[rgba(var(--j-cyan-rgb),0.06)] hover:text-white"
               >
                 {s}
               </button>
@@ -141,11 +141,11 @@ function MicOrb({ state, level }: { state: VoiceState; level: number }) {
         className="absolute inset-0 rounded-full"
         animate={{
           scale: listening || speaking ? 1 + level * 0.12 : 1,
-          boxShadow: listening || speaking ? "0 0 28px 2px rgba(41,230,255,0.75)" : "0 0 18px -4px rgba(41,230,255,0.55)",
+          boxShadow: listening || speaking ? "0 0 28px 2px rgba(var(--j-cyan-rgb),0.75)" : "0 0 18px -4px rgba(var(--j-cyan-rgb),0.55)",
         }}
         transition={{ duration: 0.12 }}
         style={{
-          background: listening || speaking ? "radial-gradient(circle at 35% 30%, #b8f8ff, #29e6ff 45%, #0a8fae)" : "radial-gradient(circle at 35% 30%, rgba(41,230,255,0.4), rgba(41,230,255,0.12) 60%, rgba(41,230,255,0.06))",
+          background: listening || speaking ? "radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--j-cyan) 35%, white), var(--j-cyan) 45%, color-mix(in srgb, var(--j-cyan) 55%, black))" : "radial-gradient(circle at 35% 30%, rgba(var(--j-cyan-rgb),0.4), rgba(var(--j-cyan-rgb),0.12) 60%, rgba(var(--j-cyan-rgb),0.06))",
         }}
       />
       {listening || speaking ? <Square className="relative h-3.5 w-3.5 fill-[#00141b] text-[#00141b]" /> : <Mic className="relative h-[18px] w-[18px] text-[var(--j-ice)]" />}
@@ -176,7 +176,7 @@ export function CommandBar({
     void sendCommand(v, online)
   }
   const placeholder =
-    state === "command" ? "Listening…" : state === "thinking" ? "Thinking…" : state === "wake" ? "Say “Jarvis…” or type" : "Ask JARVIS or log anything…"
+    state === "command" ? "Listening…" : state === "thinking" ? "Thinking…" : state === "wake" ? "Say “Jared…” or type" : "Ask Jared or log anything…"
 
   return (
     <div className="w-full">
@@ -194,7 +194,7 @@ export function CommandBar({
         }}
         className={cn(
           "glass flex items-center gap-2 !rounded-full p-1.5 pr-2 transition-shadow duration-500",
-          state === "command" || state === "speaking" ? "shadow-[0_0_40px_-10px_rgba(41,230,255,0.7)]" : "",
+          state === "command" || state === "speaking" ? "shadow-[0_0_40px_-10px_rgba(var(--j-cyan-rgb),0.7)]" : "",
         )}
       >
         <MicOrb state={state} level={level} />
@@ -231,7 +231,7 @@ export function CommandBar({
   )
 }
 
-/** Phones: command bar docked at the bottom, with JARVIS's last line floating above it. */
+/** Phones: command bar docked at the bottom, with Jared's last line floating above it. */
 export function MobileDock(props: { online: boolean; state: VoiceState; level: number; interim: string; error: string | null }) {
   const [open, setOpen] = useState(false)
   const last = useJarvis((s) => s.chat[s.chat.length - 1])

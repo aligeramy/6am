@@ -134,7 +134,7 @@ function Chips<T extends string | number>({ items, value, onPick, render }: { it
           className={cn(
             "rounded-full border px-3 py-1 text-[0.8rem] capitalize transition-all duration-200",
             value === p
-              ? "border-[rgba(41,230,255,0.6)] bg-[rgba(41,230,255,0.16)] text-white shadow-[0_0_14px_-4px_rgba(41,230,255,0.8)]"
+              ? "border-[rgba(var(--j-cyan-rgb),0.6)] bg-[rgba(var(--j-cyan-rgb),0.16)] text-white shadow-[0_0_14px_-4px_rgba(var(--j-cyan-rgb),0.8)]"
               : "border-[var(--j-line)] text-[var(--j-muted)] hover:border-[var(--j-line-strong)] hover:text-white",
           )}
         >
@@ -244,7 +244,7 @@ function MoneyForm({ initialKind, onDone }: { initialKind: "expense" | "income";
             }}
             className="relative rounded-full py-1.5 text-[0.8rem] font-semibold capitalize"
           >
-            {kind === k && <motion.span layoutId="money-kind" className="absolute inset-0 rounded-full bg-[rgba(41,230,255,0.18)]" transition={SPRING} />}
+            {kind === k && <motion.span layoutId="money-kind" className="absolute inset-0 rounded-full bg-[rgba(var(--j-cyan-rgb),0.18)]" transition={SPRING} />}
             <span className={cn("relative", kind === k ? "text-white" : "text-[var(--j-muted)]")}>{k}</span>
           </button>
         ))}
@@ -333,7 +333,7 @@ export function QuickLogModal() {
             <div className="no-scrollbar flex gap-1 overflow-x-auto px-5 pt-4">
               {tabs.map((t) => (
                 <button key={t.id} type="button" onClick={() => setTab(t.id)} className="relative shrink-0 rounded-full px-3 py-1.5 text-[0.8rem] font-medium">
-                  {active === t.id && <motion.span layoutId="log-tab" className="absolute inset-0 rounded-full bg-[rgba(41,230,255,0.14)]" transition={SPRING} />}
+                  {active === t.id && <motion.span layoutId="log-tab" className="absolute inset-0 rounded-full bg-[rgba(var(--j-cyan-rgb),0.14)]" transition={SPRING} />}
                   <span className={cn("relative", active === t.id ? "text-white" : "text-[var(--j-muted)]")}>{t.label}</span>
                 </button>
               ))}
@@ -367,7 +367,7 @@ export function Toast() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
             transition={SPRING}
-            className="rounded-full border border-[var(--j-line-strong)] bg-[rgba(3,18,26,0.92)] px-4 py-2 text-[0.8rem] font-medium text-[var(--j-ice)] shadow-[0_10px_40px_-10px_rgba(41,230,255,0.5)] backdrop-blur-xl"
+            className="rounded-full border border-[var(--j-line-strong)] bg-[rgba(3,18,26,0.92)] px-4 py-2 text-[0.8rem] font-medium text-[var(--j-ice)] shadow-[0_10px_40px_-10px_rgba(var(--j-cyan-rgb),0.5)] backdrop-blur-xl"
           >
             <span className="mr-1.5 text-[var(--j-cyan)]">✓</span>
             {toast}

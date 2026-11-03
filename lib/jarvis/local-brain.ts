@@ -61,6 +61,8 @@ function parseClause(raw: string, data: JarvisData): { actions: JarvisAction[]; 
     return { actions: [], reply: localStatusReport(data) }
 
   // ── Navigation ───────────────────────────────────────
+  if (/\b(?:open|show|pull up|go to)\b.*\b(workshop|engineering|lab)\b/.test(text)) return { actions: [{ type: "open_panel", pillar: "workshop" }] }
+  if (/\b(?:open|show|pull up|display|go to)\b.*\bideas?\b/.test(text)) return { actions: [{ type: "open_panel", pillar: "ideas" }] }
   const open = text.match(/\b(?:open|show|pull up|display)\b.*\b(health|wealth|money|finance|career|work|mind|habits?|missions?|goals?|spirit)\b/)
   if (open) {
     const map: Record<string, PillarId> = {
@@ -190,19 +192,68 @@ const CONFIRMATIONS = [
 ]
 
 /** Offline brain: handles logging, reports, and identity changes without Claude. */
+const STAR_WORDS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5 }
+const starsIn = (s: string) => {
+  const m = s.match(/\b([1-5]|one|two|three|four|five)\s*(?:\/\s*5\s*)?(?:stars?|out of (?:5|five))\b/i)
+  return m ? (STAR_WORDS[m[1].toLowerCase()] ?? Number(m[1])) : undefined
+}
+const stripStars = (s: string) => s.replace(/[,.;\s]*\b(?:[1-5]|one|two|three|four|five)\s*(?:\/\s*5\s*)?(?:stars?|out of (?:5|five))\b\.?/i, "").trim()
+
+/** Ideas are parsed on the whole sentence, since they often contain commas and other trigger words. */
+function parseIdea(text: string, data: JarvisData): BrainResult | null {
+  const a = data.settings.address
+  const capture =
+    text.match(/^(?:new\s+|quick\s+)?idea\s*[:\-–—]\s*(.+)$/i) ||
+    text.match(/^(?:capture|save|add|log|note)\s+(?:an?\s+|this\s+|the\s+)?(?:new\s+)?idea\s*[:\-–—]?\s*(.+)$/i) ||
+    text.match(/^i(?:'ve| have)?\s+(?:got\s+)?an\s+idea\s*(?:[:\-–—,]|for|to|about)?\s*(.+)$/i) ||
+    text.match(/^what if\s+(.+)$/i)
+  if (capture) {
+    const body = capture[1].trim()
+    const rating = starsIn(body)
+    const clean = stripStars(body)
+    const [title, ...rest] = clean.split(/\s+(?:-|—|–)\s+|\.\s+/)
+    const finalTitle = (/^what if/i.test(text) ? `What if ${title}` : title).replace(/[.!?]+$/, "")
+    const note = rest.join(". ").trim() || undefined
+    return {
+      reply: `Idea captured${rating ? ` with ${rating} star${rating > 1 ? "s" : ""}` : ""}, ${a}.`,
+      actions: [{ type: "create_idea", title: finalTitle.charAt(0).toUpperCase() + finalTitle.slice(1), note, rating }],
+    }
+  }
+  if (!data.ideas.length) return null
+
+  const rate =
+    text.match(/^(?:rate|give|score)\s+(?:the\s+|my\s+)?(.+?)\s+(?:idea\s+)?(?:a\s+)?([1-5]|one|two|three|four|five)\s*(?:stars?|out of (?:5|five))?\.?$/i) ||
+    text.match(/^(?:the\s+|my\s+)?(.+?)\s+idea\s+(?:gets?|is|deserves)\s+(?:a\s+)?([1-5]|one|two|three|four|five)\s*(?:stars?)?\.?$/i)
+  if (rate) {
+    const n = STAR_WORDS[rate[2].toLowerCase()] ?? Number(rate[2])
+    return { reply: `Rated ${n} star${n > 1 ? "s" : ""}, ${a}.`, actions: [{ type: "rate_idea", idea: rate[1], rating: n }] }
+  }
+
+  const note =
+    text.match(/^(?:add\s+(?:a\s+)?note|note|annotate|annotation)\s+(?:on|to|for)\s+(?:the\s+|my\s+)?(.+?)\s+idea\s*[:,\-–—]\s*(.+)$/i) ||
+    text.match(/^(?:add\s+(?:a\s+)?note|annotate)\s+(?:on|to|for)?\s*(?:the\s+|my\s+)?(.+?)\s*[:\-–—]\s*(.+)$/i)
+  if (note) return { reply: `Note added, ${a}.`, actions: [{ type: "annotate_idea", idea: note[1], note: note[2] }] }
+
+  return null
+}
+
 export function localBrain(input: string, data: JarvisData): BrainResult {
   const a = data.settings.address
   const text = input.trim()
   const lower = text.toLowerCase()
 
-  if (/^(hi|hey|hello|yo|good (morning|afternoon|evening)|jarvis)[!. ]*$/i.test(text))
+  const idea = parseIdea(text.replace(/^(?:hey\s+)?jared[,\s]+/i, ""), data)
+  if (idea) return idea
+
+  if (/^(hi|hey|hello|yo|good (morning|afternoon|evening)|jared|jarvis)[!. ]*$/i.test(text))
     return { reply: `At your service, ${a}. How can I help?`, actions: [] }
   if (/\b(thank(s| you)|cheers|appreciate)\b/.test(lower)) return { reply: `Always a pleasure, ${a}.`, actions: [] }
   if (/\b(help|what can you do|commands)\b/.test(lower))
     return {
       reply:
         `I can log your life by voice or text, ${a}. Try "slept 7 hours", "spent 40 dollars on food", "two hours in the studio", ` +
-        `"meditated 10 minutes", "grateful for my family", "new habit cold shower", "new mission release the album", ` +
+        `"meditated 10 minutes", "grateful for my family", "idea: start a podcast, 4 stars", "rate the podcast idea 5 stars", ` +
+        `"new habit cold shower", "new mission release the album", "open the workshop", ` +
         `"status report", or "call me Boss".`,
       actions: [],
     }
