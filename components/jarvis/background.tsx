@@ -35,7 +35,11 @@ export function HudBackground() {
       }))
     }
 
+    let rgb = "41,230,255"
+    let frame = 0
     const draw = () => {
+      // Follow the theme accent (re-read occasionally; cheap enough).
+      if (frame++ % 60 === 0) rgb = getComputedStyle(c).getPropertyValue("--j-cyan-rgb").trim() || rgb
       ctx.clearRect(0, 0, w, h)
       for (const p of pts) {
         p.x += p.vx
@@ -49,7 +53,7 @@ export function HudBackground() {
           const b = pts[j]
           const d = Math.hypot(a.x - b.x, a.y - b.y)
           if (d < 130) {
-            ctx.strokeStyle = `rgba(41,230,255,${0.09 * (1 - d / 130)})`
+            ctx.strokeStyle = `rgba(${rgb},${0.09 * (1 - d / 130)})`
             ctx.lineWidth = 0.6
             ctx.beginPath()
             ctx.moveTo(a.x, a.y)
@@ -59,7 +63,7 @@ export function HudBackground() {
         }
       }
       for (const p of pts) {
-        ctx.fillStyle = "rgba(150,240,255,0.55)"
+        ctx.fillStyle = `rgba(${rgb},0.6)`
         ctx.beginPath()
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
         ctx.fill()
@@ -81,7 +85,7 @@ export function HudBackground() {
       <svg className="absolute inset-0 h-full w-full opacity-[0.07]">
         <defs>
           <pattern id="hex" width="28" height="48.5" patternUnits="userSpaceOnUse" patternTransform="scale(1.1)">
-            <path d="M14 0 L28 8.08 L28 24.25 L14 32.33 L0 24.25 L0 8.08 Z M14 32.33 L14 48.5" fill="none" stroke="#29e6ff" strokeWidth="0.6" />
+            <path d="M14 0 L28 8.08 L28 24.25 L14 32.33 L0 24.25 L0 8.08 Z M14 32.33 L14 48.5" fill="none" stroke="var(--j-cyan)" strokeWidth="0.6" />
           </pattern>
           <radialGradient id="hexfade" cx="50%" cy="40%" r="65%">
             <stop offset="0%" stopColor="#fff" />

@@ -5,11 +5,14 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { checkLink, runBriefing, sendCommand, type LinkStatus } from "@/lib/jarvis/brain"
 import { isPastTime, todayKey } from "@/lib/jarvis/dates"
 import { lifeScore, pillarScores, weakestPillar } from "@/lib/jarvis/scoring"
-import { useJarvis } from "@/lib/jarvis/store"
-import type { PillarId } from "@/lib/jarvis/types"
+import { DEFAULT_APPEARANCE, useJarvis } from "@/lib/jarvis/store"
+import { sanitizeCss } from "@/lib/jarvis/actions"
+import type { PillarId, SectionId } from "@/lib/jarvis/types"
 import { voice, type VoiceState } from "@/lib/jarvis/voice"
 import { ArcReactor } from "./arc-reactor"
 import { HudBackground } from "./background"
+import { IdeasCard } from "./ideas"
+import { Workshop } from "./workshop"
 import { BootSequence, welcomeLine } from "./boot-sequence"
 import { BriefingOverlay } from "./briefing-overlay"
 import { CommandBar, Conversation, MobileDock } from "./command-bar"
@@ -40,7 +43,7 @@ function useScores() {
   const journal = useJarvis((s) => s.journal)
   const settings = useJarvis((s) => s.settings)
   return useMemo(() => {
-    const scores = pillarScores({ logs, transactions, habits, missions, projects, journal, settings, chat: [] })
+    const scores = pillarScores({ logs, transactions, habits, missions, projects, journal, settings, chat: [], ideas: [], workshop: [], appearance: DEFAULT_APPEARANCE })
     return { scores, life: lifeScore(scores), weakest: weakestPillar(scores) }
   }, [logs, transactions, habits, missions, projects, journal, settings])
 }
@@ -55,7 +58,12 @@ const rise: Variants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE } },
 }
 
-const RIGHT_PILLARS: PillarId[] = ["health", "wealth", "career", "mind", "spirit"]
+const hexToRgb = (hex: string) => {
+  let h = hex.replace("#", "").trim()
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("")
+  const n = parseInt(h, 16)
+  return Number.isNaN(n) ? "41, 230, 255" : `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`
+}
 
 export default function JarvisApp() {
   const [phase, setPhase] = useState<"boot" | "hud">("boot")
@@ -118,8 +126,47 @@ export default function JarvisApp() {
   const openPillar = (p: PillarId) => useJarvis.getState().setUI({ activePillar: p })
   const voiceProps = { online: !!online, state: v.state, level: v.level, interim: v.interim, error: v.error }
 
+  // Appearance (edited in the Workshop): one accent drives the whole HUD.
+  const appearance = useJarvis((s) => s.appearance)
+  const themeStyle = useMemo(
+    () =>
+      ({
+        "--j-cyan": appearance.accent,
+        "--j-cyan-rgb": hexToRgb(appearance.accent),
+        "--j-amber": appearance.warning,
+        "--j-red": appearance.danger,
+        "--j-bg": appearance.background,
+      }) as React.CSSProperties,
+    [appearance.accent, appearance.warning, appearance.danger, appearance.background],
+  )
+  useEffect(() => {
+    // Sizes are rem-based, so scaling the root font scales all text.
+    document.documentElement.style.fontSize = appearance.fontScale === 1 ? "" : `${16 * appearance.fontScale}px`
+    return () => {
+      document.documentElement.style.fontSize = ""
+    }
+  }, [appearance.fontScale])
+
+  const visible = (ids: SectionId[]) => ids.filter((id) => !appearance.sections[id]?.hidden)
+  const renderSection = (id: SectionId) => {
+    switch (id) {
+      case "greeting":
+        return <Greeting scores={scores} life={life} weakest={weakest} />
+      case "habits":
+        return <HabitsCard score={scores.habits} />
+      case "missions":
+        return <MissionsCard score={scores.missions} />
+      case "ideas":
+        return <IdeasCard />
+      default:
+        return <PillarCard pillar={id} score={scores[id]} />
+    }
+  }
+  const showGreetingOnMobile = !appearance.sections.greeting?.hidden
+
   return (
-    <div className="jarvis-root">
+    <div className="jarvis-root" style={themeStyle}>
+      {appearance.customCss && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(appearance.customCss) }} />}
       <HudBackground />
 
       <LayoutGroup>
@@ -160,21 +207,18 @@ export default function JarvisApp() {
                 onToggleWake={() => updateSettings({ wakeWordEnabled: !settings.wakeWordEnabled })}
                 onBriefing={() => void runBriefing(!!online)}
                 onSettings={() => useJarvis.getState().setUI({ settingsOpen: true })}
+                onWorkshop={() => useJarvis.getState().setUI({ workshopOpen: true })}
               />
             </motion.div>
 
             <main className="grid flex-1 grid-cols-1 gap-5 px-4 pb-52 sm:px-6 lg:min-h-0 lg:grid-cols-[minmax(300px,360px)_minmax(0,1fr)_minmax(300px,360px)] lg:gap-6 lg:pb-6">
-              {/* Today: greeting, habits, missions */}
+              {/* Left column (default: greeting, habits, missions, ideas). Order and visibility come from the Workshop. */}
               <motion.aside variants={column} initial="hidden" animate="show" className="order-2 space-y-4 lg:order-none lg:min-h-0 lg:overflow-y-auto no-scrollbar lg:pb-2">
-                <motion.div variants={rise} className="hidden lg:block">
-                  <Greeting scores={scores} life={life} weakest={weakest} />
-                </motion.div>
-                <motion.div variants={rise}>
-                  <HabitsCard score={scores.habits} />
-                </motion.div>
-                <motion.div variants={rise}>
-                  <MissionsCard score={scores.missions} />
-                </motion.div>
+                {visible(appearance.left).map((id) => (
+                  <motion.div key={id} layout="position" variants={rise} className={id === "greeting" ? "hidden lg:block" : undefined}>
+                    {renderSection(id)}
+                  </motion.div>
+                ))}
               </motion.aside>
 
               {/* Core: reactor and conversation */}
@@ -182,9 +226,11 @@ export default function JarvisApp() {
                 <motion.div layoutId="reactor" transition={{ duration: 0.9, ease: EASE }} className="w-[min(78vw,340px)] shrink-0 lg:w-[min(100%,50vh,470px)]">
                   <ArcReactor scores={scores} life={life} voiceState={v.state} level={v.level} onSelect={openPillar} />
                 </motion.div>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5, duration: 0.6 }} className="mt-4 w-full lg:hidden">
-                  <Greeting scores={scores} life={life} weakest={weakest} />
-                </motion.div>
+                {showGreetingOnMobile && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5, duration: 0.6 }} className="mt-4 w-full lg:hidden">
+                    <Greeting scores={scores} life={life} weakest={weakest} />
+                  </motion.div>
+                )}
                 <motion.div
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -198,11 +244,11 @@ export default function JarvisApp() {
                 </motion.div>
               </section>
 
-              {/* Pillars */}
+              {/* Right column (default: the five pillar cards) */}
               <motion.aside variants={column} initial="hidden" animate="show" className="order-3 space-y-3 lg:min-h-0 lg:overflow-y-auto no-scrollbar lg:pb-2">
-                {RIGHT_PILLARS.map((p) => (
-                  <motion.div key={p} variants={rise}>
-                    <PillarCard pillar={p} score={scores[p]} />
+                {visible(appearance.right).map((id) => (
+                  <motion.div key={id} layout="position" variants={rise} className={id === "greeting" ? "hidden lg:block" : undefined}>
+                    {renderSection(id)}
                   </motion.div>
                 ))}
               </motion.aside>
@@ -216,6 +262,7 @@ export default function JarvisApp() {
       <PillarDetail scores={scores} />
       <QuickLogModal />
       <SettingsPanel online={online} />
+      <Workshop online={!!online} />
       <BriefingOverlay />
       <Toast />
     </div>

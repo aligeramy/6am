@@ -90,7 +90,7 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
       const data = JSON.parse(await f.text())
       useJarvis.getState().importData(data)
     } catch {
-      alert("That file isn't a valid JARVIS backup.")
+      alert("That file isn't a valid Jared backup.")
     }
   }
 
@@ -106,7 +106,7 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
           <input className="hud-input" value={st.name} placeholder="Tony" onChange={(e) => update({ name: e.target.value })} />
         </label>
         <div className="space-y-1.5">
-          <span className="hud-label">How JARVIS addresses you</span>
+          <span className="hud-label">How Jared addresses you</span>
           <input
             className="hud-input"
             value={address}
@@ -127,7 +127,7 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
                 }}
                 className={cn(
                   "rounded-full border px-3 py-1 text-[0.78rem] transition-all duration-200",
-                  st.address === p ? "border-[rgba(41,230,255,0.6)] bg-[rgba(41,230,255,0.14)] text-white" : "border-[var(--j-line)] text-[var(--j-muted)] hover:text-white",
+                  st.address === p ? "border-[rgba(var(--j-cyan-rgb),0.6)] bg-[rgba(var(--j-cyan-rgb),0.14)] text-white" : "border-[var(--j-line)] text-[var(--j-muted)] hover:text-white",
                 )}
               >
                 {p}
@@ -135,7 +135,7 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
             ))}
           </div>
           <div className="text-[0.78rem] text-[var(--j-muted)]">
-            Preview: “Good morning, {st.address}.” You can also just say “Jarvis, call me Boss.”
+            Preview: “Good morning, {st.address}.” You can also just say “Jared, call me Boss.”
           </div>
         </div>
       </Section>
@@ -144,8 +144,21 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
         <NeuralLink online={online} />
       </Section>
 
+      <Section title="Look & layout">
+        <Row label="Colors, sections, text size" hint="Change them by hand, or just tell the Workshop what you want">
+          <HudButton
+            onClick={() => {
+              close()
+              useJarvis.getState().setUI({ workshopOpen: true })
+            }}
+          >
+            Open Workshop
+          </HudButton>
+        </Row>
+      </Section>
+
       <Section title="Morning briefing">
-        <Row label="Daily briefing" hint="Delivered at your wake time, or the first time you open JARVIS after it">
+        <Row label="Daily briefing" hint="Delivered at your wake time, or the first time you open Jared after it">
           <Toggle checked={st.briefingEnabled} onChange={(v) => update({ briefingEnabled: v })} label="Daily briefing" />
         </Row>
         <Row label="Wake time">
@@ -158,7 +171,7 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
           <Toggle checked={st.voiceEnabled} onChange={(v) => update({ voiceEnabled: v })} label="Spoken replies" />
         </Row>
         <Row
-          label="“Hey JARVIS” wake word"
+          label="“Hey Jared” wake word"
           hint={voice.recognitionSupported ? "Listens continuously while this tab is open" : "Needs Chrome, Edge or Safari"}
         >
           <Toggle checked={st.wakeWordEnabled} onChange={(v) => update({ wakeWordEnabled: v })} label="Wake word" />
@@ -177,11 +190,11 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
         <div className="grid grid-cols-2 gap-3">
           <label className="space-y-1">
             <span className="hud-label">Rate · {st.voiceRate.toFixed(2)}</span>
-            <input type="range" min={0.7} max={1.4} step={0.05} value={st.voiceRate} onChange={(e) => update({ voiceRate: parseFloat(e.target.value) })} className="w-full accent-[#29e6ff]" />
+            <input type="range" min={0.7} max={1.4} step={0.05} value={st.voiceRate} onChange={(e) => update({ voiceRate: parseFloat(e.target.value) })} className="w-full" />
           </label>
           <label className="space-y-1">
             <span className="hud-label">Pitch · {st.voicePitch.toFixed(2)}</span>
-            <input type="range" min={0.5} max={1.5} step={0.05} value={st.voicePitch} onChange={(e) => update({ voicePitch: parseFloat(e.target.value) })} className="w-full accent-[#29e6ff]" />
+            <input type="range" min={0.5} max={1.5} step={0.05} value={st.voicePitch} onChange={(e) => update({ voicePitch: parseFloat(e.target.value) })} className="w-full" />
           </label>
         </div>
         <HudButton onClick={test}>Test voice</HudButton>
@@ -230,7 +243,7 @@ export function SettingsPanel({ online }: { online: boolean | null }) {
             onBlur={(e) => update({ passcode: e.target.value || undefined })}
           />
           <span className="block text-[0.75rem] text-[var(--j-faint)]">
-            Asked for when JARVIS starts. On a server deploy, set the same value as JARVIS_ACCESS_CODE so strangers can't spend your API credits.
+            Asked for when Jared starts. On a server deploy, set the same value as JARVIS_ACCESS_CODE so strangers can't spend your API credits.
           </span>
         </label>
       </Section>

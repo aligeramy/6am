@@ -7,7 +7,7 @@ const body = Exo_2({ subsets: ["latin"], weight: ["300", "400", "500", "600", "7
 const mono = Share_Tech_Mono({ subsets: ["latin"], weight: "400", variable: "--font-jarvis-mono" })
 
 export const metadata: Metadata = {
-  title: "J.A.R.V.I.S.",
+  title: "J.A.R.E.D.",
   description: "Personal life operating system",
   robots: { index: false, follow: false },
 }

@@ -19,7 +19,10 @@ export function Waveform({ state, level, bars = 32, className }: { state: VoiceS
     const smooth = new Array(bars).fill(0)
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
 
+    let rgb = "41,230,255"
+    let n = 0
     const frame = () => {
+      if (n++ % 60 === 0) rgb = getComputedStyle(c).getPropertyValue("--j-cyan-rgb").trim() || rgb
       const w = c.clientWidth
       const h = c.clientHeight
       if (c.width !== w * dpr) {
@@ -42,8 +45,8 @@ export function Waveform({ state, level, bars = 32, className }: { state: VoiceS
         smooth[i] += (target - smooth[i]) * 0.25
         const bh = Math.max(1.5, smooth[i] * h)
         const x = i * bw + bw * 0.2
-        ctx.fillStyle = `rgba(41,230,255,${0.35 + smooth[i] * 0.65})`
-        ctx.shadowColor = "rgba(41,230,255,0.9)"
+        ctx.fillStyle = `rgba(${rgb},${0.35 + smooth[i] * 0.65})`
+        ctx.shadowColor = `rgba(${rgb},0.9)`
         ctx.shadowBlur = 6
         ctx.fillRect(x, (h - bh) / 2, bw * 0.6, bh)
       }

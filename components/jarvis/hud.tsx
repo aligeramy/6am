@@ -1,8 +1,10 @@
 "use client"
 
-import { motion } from "framer-motion"
-import { Plus } from "lucide-react"
+import { AnimatePresence, motion } from "framer-motion"
+import { ChevronDown, Plus } from "lucide-react"
 import { useEffect, useId, useRef, useState, type ReactNode } from "react"
+import { useJarvis } from "@/lib/jarvis/store"
+import type { SectionId } from "@/lib/jarvis/types"
 import { cn } from "@/lib/utils"
 
 /* ─────────────── Surfaces ─────────────── */
@@ -13,13 +15,23 @@ export function HudPanel({
   title,
   right,
   onClick,
+  section,
 }: {
   children: ReactNode
   className?: string
   title?: ReactNode
   right?: ReactNode
   onClick?: () => void
+  /** Makes the card minimizable and lets the Workshop rename it. */
+  section?: SectionId
 }) {
+  const pref = useJarvis((s) => (section ? s.appearance.sections[section] : undefined))
+  const collapsed = !!pref?.collapsed
+  const label = pref?.title || title
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (section) useJarvis.getState().setSection(section, { collapsed: !collapsed })
+  }
   return (
     <section
       className={cn("glass flex flex-col", onClick && "glass-hover", className)}
@@ -27,14 +39,43 @@ export function HudPanel({
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => (e.key === "Enter" || e.key === " ") && e.target === e.currentTarget && onClick() : undefined}
+      data-section={section}
     >
-      {(title || right) && (
-        <header className="relative z-[1] flex items-center justify-between gap-2 px-4 pt-3.5">
-          <div className="hud-label min-w-0 truncate">{title}</div>
-          {right}
+      {(label || right || section) && (
+        <header className={cn("relative z-[1] flex items-center justify-between gap-2 px-4 pt-3.5", collapsed && "pb-3.5")}>
+          <div className="hud-label min-w-0 truncate">{label}</div>
+          <div className="flex shrink-0 items-center gap-1">
+            {right}
+            {section && (
+              <button
+                type="button"
+                onClick={toggle}
+                className="icon-btn h-7 w-7"
+                aria-label={collapsed ? "Expand section" : "Minimize section"}
+                aria-expanded={!collapsed}
+                title={collapsed ? "Expand" : "Minimize"}
+              >
+                <ChevronDown className={cn("h-4 w-4 transition-transform duration-300", collapsed && "-rotate-90")} />
+              </button>
+            )}
+          </div>
         </header>
       )}
-      <div className="relative z-[1] flex min-h-0 flex-1 flex-col">{children}</div>
+      <AnimatePresence initial={false}>
+        {!collapsed && (
+          <motion.div
+            key="body"
+            // Clip only while animating, so chart tooltips can overflow the card afterwards.
+            initial={{ height: 0, opacity: 0, overflow: "hidden" }}
+            animate={{ height: "auto", opacity: 1, transitionEnd: { overflow: "visible" } }}
+            exit={{ height: 0, opacity: 0, overflow: "hidden" }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            className="relative z-[1] flex min-h-0 flex-1 flex-col"
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   )
 }
@@ -89,7 +130,7 @@ export function Ring({
   return (
     <div className={cn("relative inline-flex shrink-0 items-center justify-center", className)} style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(41,230,255,0.1)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(var(--j-cyan-rgb),0.1)" strokeWidth={stroke} />
         <motion.circle
           cx={size / 2}
           cy={size / 2}
@@ -118,7 +159,7 @@ export function Bar({ value, warn = true, tone: toneOverride, marker, className 
   const tone = toneOverride ?? (!warn || value >= 0.5 ? "var(--j-cyan)" : "var(--j-amber)")
   return (
     <div
-      className={cn("relative h-[5px] w-full rounded-full bg-[rgba(41,230,255,0.08)]", className)}
+      className={cn("relative h-[5px] w-full rounded-full bg-[rgba(var(--j-cyan-rgb),0.08)]", className)}
       role="meter"
       aria-valuenow={Math.round(value * 100)}
       aria-valuemin={0}
@@ -207,8 +248,8 @@ export function Sparkline({
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-full w-full overflow-visible">
         <defs>
           <linearGradient id={`g${id}`} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="rgba(41,230,255,0.28)" />
-            <stop offset="100%" stopColor="rgba(41,230,255,0)" />
+            <stop offset="0%" stopColor="rgba(var(--j-cyan-rgb),0.28)" />
+            <stop offset="100%" stopColor="rgba(var(--j-cyan-rgb),0)" />
           </linearGradient>
         </defs>
         {target !== undefined && target > 0 && (
@@ -232,7 +273,7 @@ export function Sparkline({
             initial={{ pathLength: 0, opacity: 0 }}
             animate={{ pathLength: 1, opacity: 1 }}
             transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
-            style={{ filter: "drop-shadow(0 0 3px rgba(41,230,255,0.7))" }}
+            style={{ filter: "drop-shadow(0 0 3px rgba(var(--j-cyan-rgb),0.7))" }}
           />
         ))}
         {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={0} y2={H} stroke="rgba(196,247,255,0.35)" strokeWidth={1} vectorEffect="non-scaling-stroke" />}
@@ -245,7 +286,7 @@ export function Sparkline({
         d.value !== null && (i === lastIdx || i === hover) ? (
           <span
             key={`p${i}`}
-            className="pointer-events-none absolute h-[7px] w-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_8px_2px_rgba(41,230,255,0.7)]"
+            className="pointer-events-none absolute h-[7px] w-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_8px_2px_rgba(var(--j-cyan-rgb),0.7)]"
             style={{ left: `${(x(i) / W) * 100}%`, top: `${(y(d.value) / H) * 100}%` }}
           />
         ) : null,
@@ -296,7 +337,7 @@ export function LogChip({ children, onClick, title }: { children: ReactNode; onC
       type="button"
       onClick={onClick}
       title={title}
-      className="flex items-center gap-1 rounded-full border border-[var(--j-line)] bg-[rgba(41,230,255,0.04)] px-2.5 py-1 text-[0.72rem] font-medium text-[var(--j-muted)] transition-colors duration-200 hover:border-[var(--j-line-strong)] hover:bg-[rgba(41,230,255,0.1)] hover:text-white"
+      className="flex items-center gap-1 rounded-full border border-[var(--j-line)] bg-[rgba(var(--j-cyan-rgb),0.04)] px-2.5 py-1 text-[0.72rem] font-medium text-[var(--j-muted)] transition-colors duration-200 hover:border-[var(--j-line-strong)] hover:bg-[rgba(var(--j-cyan-rgb),0.1)] hover:text-white"
     >
       <Plus className="h-3 w-3" />
       {children}

@@ -1,55 +1,61 @@
 # 6am
 
-## J.A.R.V.I.S. life dashboard (`/jarvis`)
+## J.A.R.E.D. life dashboard (`/jared`)
 
-A private, voice-driven HUD for seven pillars of life: Health, Wealth, Career, Mind, Habits, Missions and Spirit.
-It lives at `/jarvis`, is not linked from the album site, and is marked `noindex`.
+A private, voice-driven HUD for seven pillars of life (Health, Wealth, Career, Mind, Habits, Missions and Spirit), plus an ideas vault and a Workshop that changes the app itself.
+It lives at `/jared` (the old `/jarvis` link redirects there), is not linked from the album site, and is marked `noindex`.
 
 ```bash
 pnpm install
-pnpm dev            # open http://localhost:3000/jarvis
+pnpm dev            # open http://localhost:3000/jared
 ```
 
 ### What it does
 
-- **Boot sequence**: the arc reactor powers on and each pillar comes online, then JARVIS greets you. Turn it off in settings, or press Esc to skip.
-- **Arc reactor**: shows your Life Index (0–100) with a ring segment per pillar. Hover a segment for its score, click to open the pillar.
-- **Pillar panels**: quick-log buttons on each panel, plus a full detail view with 30-day charts, history, and editors for projects, habits, missions and vision.
-- **Voice + chat**: click the mic, or turn on the **"Hey JARVIS"** wake word (the radio icon in the top bar) and just talk. Replies are spoken in the browser's British voice.
-- **Morning briefing**: delivered at your wake time, or the first time you open JARVIS after it. You can also trigger it with the Briefing button.
-- **Form of address**: change it in Settings, or say *"Jarvis, call me Boss."*
+- **Boot sequence**: the arc reactor powers on, each pillar comes online, then Jared greets you. Press Esc to skip, or turn it off in Settings.
+- **Arc reactor**: shows your Life Index (0–100) with a ring segment per pillar. Hover a segment for its score, click it to open the pillar.
+- **Sections**: Today (greeting, habits, missions, ideas) on the left and pillar cards on the right. Every section can be **minimized** with the chevron in its header; the app remembers which ones you minimized.
+- **Ideas**: capture ideas by typing, by the mic, or by saying *"Jared, idea: …"*. Rate them 1–5 stars, add notes over time, tag them, set a status, and search, sort or filter the whole vault.
+- **Workshop** (wrench icon): a separate Claude that changes the app itself: colors, text size, section names, hiding, minimizing and moving sections, custom styling, and fixes to your data. It asks a question when something's unclear, and every change has an Undo. Its **Controls** tab does the same things by hand. Without Claude it still handles colors, text size and sections.
+- **Voice + chat**: click the mic, or turn on the **"Hey Jared"** wake word (radio icon) and just talk. Replies are spoken in the browser's British voice.
+- **Morning briefing**: delivered at your wake time, or the first time you open Jared after it. You can also run it from the sun icon.
 
 ### Things to say
 
-| You say | JARVIS does |
+| You say | Jared does |
 |---|---|
 | "I slept 7.5 hours, spent $40 on dinner and did 2 hours in the studio" | Logs sleep, an expense and deep work |
 | "Meditated 15 minutes" / "Read 30 minutes" / "Mood 8" | Mind telemetry |
 | "Ran 5k" / "Gym 60 minutes" / "Drank 3 glasses of water" | Health telemetry |
 | "Earned $850 from the show" / "Net worth is 42k" | Wealth |
+| "Idea: start a podcast about making music, 4 stars" / "What if we did a vinyl-only release" | Captures an idea |
+| "Rate the podcast idea 5 stars" / "Add a note to the podcast idea: invite producers" | Rates or annotates an idea |
 | "New habit Cold shower" / "Completed cold shower" | Habits |
 | "New mission Release the album" / "Release the album to 60%" | Missions |
 | "Grateful for my family" / "Journal: …" | Spirit & journal |
 | "Status report" / "Brief me" | Reports |
-| "Call me Chief" | Changes how JARVIS addresses you |
+| "Open the workshop" / "Open ideas" | Opens a panel |
+| "Call me Chief" | Changes how Jared addresses you |
+
+In the Workshop: *"Make it red and gold like the suit"*, *"Rename Spirit to Faith"*, *"Hide wealth"*, *"Minimize everything except habits"*, *"Make the text bigger"*, *"Delete the duplicate sleep entry from yesterday"*.
 
 ### Environment variables
 
 | Variable | Purpose |
 |---|---|
-| `ANTHROPIC_API_KEY` | Gives JARVIS a full Claude brain: free-form conversation, coaching from your data, and smarter logging. Without it, a built-in parser handles the commands above and briefings are assembled locally. |
+| `ANTHROPIC_API_KEY` | Gives Jared and the Workshop a full Claude brain. Without it, a built-in parser handles the commands above and briefings are assembled locally. |
 | `JARVIS_ACCESS_CODE` | Recommended once deployed. The `/api/jarvis` endpoint only answers browsers whose access code (Settings → Security) matches, so strangers can't spend your API credits. |
 
-Put them in `.env.local` locally, or in your Vercel project settings.
+Put them in `.env.local` locally, or in your hosting provider's settings.
 
 ### Deploy without a server (Netlify Drop)
 
 ```bash
-pnpm build:static    # -> jarvis-static.zip (dashboard at "/", no server route)
+pnpm build:static    # -> jared-static.zip (dashboard at "/", no server route)
 ```
 
-Drag the zip onto [app.netlify.com/drop](https://app.netlify.com/drop). To give this version Claude, open
-Settings → **Neural link · Claude** and paste your Anthropic API key. The browser then talks to Anthropic directly.
+Drag the zip onto [app.netlify.com/drop](https://app.netlify.com/drop), or onto an existing site's **Deploys** tab to update it in place.
+To give this version Claude, open Settings → **Neural link · Claude** and paste your Anthropic API key. The browser then talks to Anthropic directly.
 The key is stored only in that browser, sent only to Anthropic, and left out of backups, so use it only on your own devices,
 and consider setting a monthly spend limit in the Anthropic console.
 
@@ -59,9 +65,10 @@ Everything is stored in your browser (`localStorage`). Use Settings → Export b
 
 ### Code map
 
-- `app/jarvis/`: route, fonts and HUD stylesheet
+- `app/jared/`: route, fonts and HUD stylesheet (`/jarvis` redirects here)
 - `app/api/jarvis/route.ts`: Claude endpoint (tool use; the browser applies the returned actions)
-- `lib/jarvis/claude.ts`: the shared brain (persona, tools, tool loop), used by the server route and by browser-key mode
+- `lib/jarvis/claude.ts`: the shared brain: persona, tools and tool loop for Jared and for the Workshop
+- `lib/jarvis/workshop-local.ts`: the Workshop's offline parser
+- `components/jarvis/`: arc reactor, boot sequence, cards, ideas, Workshop, command bar, settings
+- `lib/jarvis/`: store, scoring, actions, the offline command parser, voice engine, briefing
 - `scripts/build-static.sh`: static build for drag-and-drop hosting
-- `components/jarvis/`: arc reactor, boot sequence, panels, console, settings
-- `lib/jarvis/`: store, scoring, the offline command parser, voice engine, briefing

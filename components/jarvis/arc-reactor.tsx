@@ -68,8 +68,8 @@ export function ArcReactor({
         <defs>
           <radialGradient id="core" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="scale(90)">
             <stop offset="0%" stopColor="rgba(220,252,255,0.55)" />
-            <stop offset="35%" stopColor="rgba(41,230,255,0.28)" />
-            <stop offset="100%" stopColor="rgba(41,230,255,0)" />
+            <stop offset="35%" stopColor="rgba(var(--j-cyan-rgb),0.28)" />
+            <stop offset="100%" stopColor="rgba(var(--j-cyan-rgb),0)" />
           </radialGradient>
           <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="3.2" result="b" />
@@ -132,7 +132,7 @@ export function ArcReactor({
               <motion.path
                 d={arc(188, start, end)}
                 fill="none"
-                stroke="rgba(41,230,255,0.13)"
+                stroke="rgba(var(--j-cyan-rgb),0.13)"
                 strokeWidth={isHover ? 14 : 10}
                 initial={{ pathLength: 0 }}
                 animate={{ pathLength: powered ? 1 : 0 }}
@@ -195,7 +195,7 @@ export function ArcReactor({
             <motion.path
               key={i}
               d={wedge(96, 122, i * 36 + 3, i * 36 + 33)}
-              fill="rgba(41,230,255,0.08)"
+              fill="rgba(var(--j-cyan-rgb),0.08)"
               stroke="var(--j-cyan)"
               strokeWidth={1.2}
               initial={{ opacity: 0 }}
@@ -223,8 +223,8 @@ export function ArcReactor({
           animate={{ opacity: powered ? 0.75 + level * 0.25 : 0.1, scale: 1 + (active ? level * 0.06 : 0) }}
           transition={{ duration: 0.12 }}
         />
-        <circle r={64} fill="rgba(1,8,14,0.72)" stroke="rgba(41,230,255,0.4)" strokeWidth={1} />
-        <circle r={58} fill="none" stroke="rgba(41,230,255,0.18)" strokeWidth={6} strokeDasharray="1 3" />
+        <circle r={64} fill="rgba(1,8,14,0.72)" stroke="rgba(var(--j-cyan-rgb),0.4)" strokeWidth={1} />
+        <circle r={58} fill="none" stroke="rgba(var(--j-cyan-rgb),0.18)" strokeWidth={6} strokeDasharray="1 3" />
       </svg>
 
       {/* Center readout */}

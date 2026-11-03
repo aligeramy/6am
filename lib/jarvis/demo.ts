@@ -2,7 +2,7 @@ import { dayKey, uid } from "./dates"
 import type { JarvisData } from "./types"
 
 /** Realistic sample data so you can see every panel lit up. Replaces existing data. */
-export function demoData(): Omit<JarvisData, "settings" | "chat"> {
+export function demoData(): Omit<JarvisData, "settings" | "chat" | "workshop" | "appearance"> {
   const r = (min: number, max: number, dp = 0) => +(min + Math.random() * (max - min)).toFixed(dp)
   const logs: JarvisData["logs"] = []
   const transactions: JarvisData["transactions"] = []
@@ -80,5 +80,23 @@ export function demoData(): Omit<JarvisData, "settings" | "chat"> {
     { id: uid(), kind: "journal", text: "Felt locked in during the late session. Protect the mornings.", date: dayKey(-1), ts: Date.now() - 9e7 },
   ]
 
-  return { logs, transactions, habits, missions, projects, journal }
+  const idea = (title: string, rating: number, status: JarvisData["ideas"][number]["status"], tags: string[], notes: string[], ago: number) => ({
+    id: uid(),
+    title,
+    rating,
+    status,
+    tags,
+    notes: notes.map((text, i) => ({ id: uid(), text, ts: Date.now() - (ago - i) * 86400000 })),
+    createdAt: Date.now() - ago * 86400000,
+    updatedAt: Date.now() - Math.max(0, ago - notes.length) * 86400000,
+  })
+  const ideas: JarvisData["ideas"] = [
+    idea("Behind-the-scenes mini doc for the album", 5, "exploring", ["music", "content"], ["Film studio sessions on phone, cut weekly", "Could premiere on YouTube before release"], 6),
+    idea("Merch drop tied to the Not Sorry single", 4, "new", ["music", "business"], ["Limited run, 100 hoodies"], 4),
+    idea("Morning routine app for creatives", 3, "parked", ["business"], [], 12),
+    idea("Monthly listening party in LA", 4, "new", ["music", "community"], [], 2),
+    idea("Learn piano basics for songwriting", 0, "new", ["learning"], [], 1),
+  ]
+
+  return { logs, transactions, habits, missions, projects, journal, ideas }
 }

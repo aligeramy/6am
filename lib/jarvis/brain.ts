@@ -6,9 +6,10 @@ import { localBriefing } from "./briefing"
 import type { JarvisRequest, JarvisResult } from "./claude"
 import { todayKey } from "./dates"
 import { localBrain } from "./local-brain"
-import { buildSnapshot } from "./snapshot"
+import { buildSnapshot, buildWorkshopSnapshot } from "./snapshot"
 import { exportData, useJarvis } from "./store"
-import type { ChatAction, JarvisAction } from "./types"
+import { localWorkshop } from "./workshop-local"
+import type { ChatAction, JarvisAction, JarvisData } from "./types"
 import { voice } from "./voice"
 
 export interface LinkStatus {
@@ -17,7 +18,7 @@ export interface LinkStatus {
   locked: boolean
 }
 
-/** Is there a JARVIS server (app/api/jarvis) with a key? On static hosting like Netlify Drop there isn't. */
+/** Is there a Jared server (app/api/jarvis) with a key? On static hosting like Netlify Drop there isn't. */
 export async function checkLink(): Promise<LinkStatus> {
   try {
     const res = await fetch("/api/jarvis", { headers: authHeaders() })
@@ -91,12 +92,13 @@ async function serverRun(req: JarvisRequest): Promise<JarvisResult> {
   return res.json()
 }
 
-async function callClaude(mode: "chat" | "briefing") {
+async function callClaude(mode: "chat" | "briefing" | "workshop") {
   const data = exportData()
+  const history = mode === "workshop" ? data.workshop : data.chat
   const req: JarvisRequest = {
     mode,
-    snapshot: buildSnapshot(data),
-    messages: data.chat.slice(-14).map((m) => ({ role: m.role, text: m.text })),
+    snapshot: mode === "workshop" ? buildWorkshopSnapshot(data) : buildSnapshot(data),
+    messages: history.slice(-14).map((m) => ({ role: m.role, text: m.text })),
   }
   const key = data.settings.apiKey?.trim()
   const r = key ? await directRun(key, req) : await serverRun(req)
@@ -183,4 +185,83 @@ export async function sendCommand(input: string, online: boolean) {
     useJarvis.getState().pushChat({ role: "jarvis", text: reply, actions: chips.length ? chips : undefined })
     await speak(reply)
   }
+}
+
+/* ───────── Workshop: changes the app itself, with undo ───────── */
+
+/** Snapshots taken before each Workshop change, keyed by the reply that made it. Kept for this session only. */
+const undoStack = new Map<string, Omit<JarvisData, "chat" | "workshop" | "settings">>()
+
+function snapshotForUndo() {
+  const d = exportData()
+  return structuredClone({
+    logs: d.logs,
+    transactions: d.transactions,
+    habits: d.habits,
+    missions: d.missions,
+    projects: d.projects,
+    journal: d.journal,
+    ideas: d.ideas,
+    appearance: d.appearance,
+  })
+}
+
+/** Undo is linear: only the most recent change can be undone, then the one before it, and so on. */
+export const canUndo = (messageId: string) => [...undoStack.keys()].pop() === messageId
+
+export function undoWorkshop(messageId: string) {
+  const snap = undoStack.get(messageId)
+  if (!snap) return false
+  useJarvis.getState().importData(snap)
+  undoStack.delete(messageId)
+  useJarvis.setState((s) => ({ workshop: s.workshop.map((m) => (m.id === messageId ? { ...m, undoable: false, text: `${m.text} (Undone.)` } : m)) }))
+  return true
+}
+
+let workshopBusy = false
+
+export async function sendWorkshop(input: string, online: boolean) {
+  const text = input.trim()
+  if (!text || workshopBusy) return
+  workshopBusy = true
+  const store = useJarvis.getState()
+  store.pushWorkshop({ role: "user", text })
+  voice.setThinking(true)
+  const before = snapshotForUndo()
+  let reply = ""
+  let actions: JarvisAction[] = []
+  try {
+    if (online) {
+      try {
+        const r = await callClaude("workshop")
+        actions = r.actions
+        reply = r.reply
+      } catch (e) {
+        const code = (e as { code?: string }).code ?? ""
+        const local = localWorkshop(text)
+        actions = local.actions
+        reply = `${local.reply} (Claude isn't reachable: ${WHY[code] ?? "the neural link dropped"}.)`
+      }
+    } else {
+      const local = localWorkshop(text)
+      actions = local.actions
+      reply = local.reply
+    }
+  } finally {
+    voice.setThinking(false)
+    workshopBusy = false
+  }
+
+  const chips = actions.map(applyAction).filter((c) => c.label)
+  const ask = actions.find((a): a is Extract<JarvisAction, { type: "ask_user" }> => a.type === "ask_user")
+  const changed = actions.some((a) => a.type !== "ask_user" && a.type !== "open_panel")
+  if (ask && !reply.includes(ask.question)) reply = [reply, ask.question].filter(Boolean).join(" ")
+  const msg = useJarvis.getState().pushWorkshop({
+    role: "jarvis",
+    text: reply || (changed ? "Done." : "I'm not sure what to change there."),
+    actions: chips.length ? chips : undefined,
+    options: ask?.options?.slice(0, 4),
+    undoable: changed || undefined,
+  })
+  if (changed) undoStack.set(msg.id, before)
 }

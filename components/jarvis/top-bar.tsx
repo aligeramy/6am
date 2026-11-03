@@ -2,14 +2,14 @@
 
 import { format } from "date-fns"
 import { AnimatePresence, motion } from "framer-motion"
-import { Radio, Settings2, Sun, Volume2, VolumeX } from "lucide-react"
+import { Radio, Settings2, Sun, Volume2, VolumeX, Wrench } from "lucide-react"
 import { useEffect, useState } from "react"
 import type { VoiceState } from "@/lib/jarvis/voice"
 import { Dot, IconButton } from "./hud"
 
 const VOICE_LABEL: Record<VoiceState, string> = {
   off: "",
-  wake: "Listening for “Jarvis”",
+  wake: "Listening for “Jared”",
   command: "Listening",
   thinking: "Thinking",
   speaking: "Speaking",
@@ -24,6 +24,7 @@ export function TopBar({
   onToggleWake,
   onBriefing,
   onSettings,
+  onWorkshop,
 }: {
   online: boolean | null
   voiceState: VoiceState
@@ -33,6 +34,7 @@ export function TopBar({
   onToggleWake: () => void
   onBriefing: () => void
   onSettings: () => void
+  onWorkshop: () => void
 }) {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
@@ -51,9 +53,9 @@ export function TopBar({
           <g className="j-spin" style={{ ["--dur" as string]: "10s" }}>
             <circle r="7.2" fill="none" stroke="var(--j-cyan)" strokeWidth="1.5" strokeDasharray="7 3.3" strokeLinecap="round" />
           </g>
-          <circle r="3.4" fill="#d9fbff" style={{ filter: "drop-shadow(0 0 4px #29e6ff)" }} />
+          <circle r="3.4" fill="var(--j-ice)" style={{ filter: "drop-shadow(0 0 4px var(--j-cyan))" }} />
         </svg>
-        <span className="font-hud text-glow-soft text-[0.95rem] font-semibold tracking-[0.42em] text-[var(--j-ice)]">JARVIS</span>
+        <span className="font-hud text-glow-soft text-[0.95rem] font-semibold tracking-[0.42em] text-[var(--j-ice)]">JARED</span>
       </div>
 
       <div className="hidden items-center gap-2 rounded-full border border-[var(--j-line)] bg-[rgba(2,14,20,0.5)] px-3.5 py-1.5 text-[0.78rem] text-[var(--j-muted)] backdrop-blur md:flex">
@@ -70,14 +72,17 @@ export function TopBar({
           <div className="font-hud tabular text-[0.95rem] font-medium text-[var(--j-ice)]">{format(now, "HH:mm")}</div>
           <div className="text-[0.68rem] text-[var(--j-faint)]">{format(now, "EEE d MMM")}</div>
         </div>
-        <IconButton onClick={onToggleWake} aria-pressed={wakeWord} title={wakeWord ? "Wake word on: say “Jarvis”" : "Turn on “Hey Jarvis”"}>
+        <IconButton onClick={onToggleWake} aria-pressed={wakeWord} title={wakeWord ? "Wake word on: say “Jared”" : "Turn on “Hey Jared”"}>
           <Radio className="h-[18px] w-[18px]" />
         </IconButton>
-        <IconButton onClick={onToggleVoice} aria-pressed={voiceEnabled} title={voiceEnabled ? "Mute JARVIS" : "Unmute JARVIS"}>
+        <IconButton onClick={onToggleVoice} aria-pressed={voiceEnabled} title={voiceEnabled ? "Mute Jared" : "Unmute Jared"}>
           {voiceEnabled ? <Volume2 className="h-[18px] w-[18px]" /> : <VolumeX className="h-[18px] w-[18px]" />}
         </IconButton>
         <IconButton onClick={onBriefing} title="Morning briefing" aria-label="Morning briefing">
           <Sun className="h-[18px] w-[18px]" />
+        </IconButton>
+        <IconButton onClick={onWorkshop} title="Workshop: change the app" aria-label="Workshop">
+          <Wrench className="h-[18px] w-[18px]" />
         </IconButton>
         <IconButton onClick={onSettings} title="Settings" aria-label="Settings">
           <Settings2 className="h-[18px] w-[18px]" />
