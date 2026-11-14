@@ -27,4 +27,4 @@ yarn-error.log*
 next-env.d.ts
 
 # static JARVIS build (scripts/build-static.sh)
-jared-static.zip
+*-static.zip

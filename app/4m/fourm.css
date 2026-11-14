@@ -1,0 +1,224 @@
+/* 4M: a plain Nokia-style screen. Two inks, one font, no animation. */
+
+html:has(.fm-root),
+html:has(.fm-root) body {
+  background: #a7b98a;
+}
+
+.fm-root {
+  --lcd: #a7b98a;
+  --ink: #1d2a17;
+  --soft: #5f7050;
+  min-height: 100dvh;
+  background-color: var(--lcd);
+  background-image: radial-gradient(rgba(0, 0, 0, 0.045) 1px, transparent 1px);
+  background-size: 4px 4px;
+  color: var(--ink);
+  font-family: var(--font-fm), monospace;
+  letter-spacing: 0.02em;
+  -webkit-tap-highlight-color: transparent;
+}
+.fm-root ::selection {
+  background: var(--ink);
+  color: var(--lcd);
+}
+.fm-root :focus-visible {
+  outline: 2px dashed var(--ink);
+  outline-offset: 3px;
+}
+
+.fm-screen {
+  max-width: 520px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + 56px) 28px calc(env(safe-area-inset-bottom) + 40px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.fm-small {
+  font-size: 26px;
+  color: var(--soft);
+  letter-spacing: 0.1em;
+  text-decoration: none;
+}
+a.fm-small:active,
+a.fm-small:hover {
+  color: var(--ink);
+}
+.fm-foot {
+  margin-top: auto;
+  padding-top: 56px;
+}
+
+/* Home: four words */
+.fm-words {
+  margin-top: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+.fm-word {
+  font-size: 64px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  text-decoration: none;
+  padding: 4px 14px 6px;
+}
+.fm-word:active {
+  background: var(--ink);
+  color: var(--lcd);
+}
+
+/* Pillar */
+.fm-title {
+  font-size: 56px;
+  font-weight: normal;
+  letter-spacing: 0.08em;
+  margin-top: 22px;
+  line-height: 1;
+}
+.fm-list {
+  list-style: none;
+  width: 100%;
+  margin-top: 34px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.fm-task {
+  font: inherit;
+  font-size: 32px;
+  line-height: 1.15;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  padding: 2px 6px;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.fm-done .fm-box,
+.fm-done .fm-text {
+  color: var(--soft);
+}
+.fm-done .fm-text {
+  text-decoration: line-through;
+}
+.fm-static {
+  cursor: default;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.fm-meta {
+  font-size: 20px;
+  color: var(--soft);
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+.fm-act {
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.fm-empty {
+  font-size: 24px;
+  color: var(--soft);
+  margin-top: 30px;
+}
+.fm-add {
+  font: inherit;
+  font-size: 30px;
+  color: var(--soft);
+  background: none;
+  border: 0;
+  margin-top: 30px;
+  cursor: pointer;
+}
+.fm-add:active {
+  color: var(--ink);
+}
+.fm-addform {
+  width: 100%;
+  margin-top: 26px;
+}
+.fm-input {
+  font: inherit;
+  font-size: 30px;
+  text-align: center;
+  width: 100%;
+  max-width: 340px;
+  padding: 4px;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid var(--ink);
+  border-radius: 0;
+  outline: none;
+  caret-color: var(--ink);
+}
+.fm-input::placeholder {
+  color: var(--soft);
+}
+/* These already draw their own line or box, so no extra focus outline. */
+.fm-root .fm-input:focus-visible,
+.fm-root .fm-date:focus-visible {
+  outline: none;
+}
+
+/* Completed */
+.fm-ranges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
+  max-width: 360px;
+  margin-top: 28px;
+}
+.fm-range {
+  font: inherit;
+  font-size: 24px;
+  color: var(--soft);
+  background: none;
+  border: 0;
+  padding: 1px 7px 3px;
+  cursor: pointer;
+}
+.fm-range.fm-on {
+  background: var(--ink);
+  color: var(--lcd);
+}
+.fm-custom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  font-size: 22px;
+  color: var(--soft);
+}
+.fm-date {
+  font: inherit;
+  font-size: 20px;
+  color: var(--ink);
+  background: transparent;
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  padding: 2px 6px;
+  color-scheme: light;
+}
+.fm-count {
+  margin-top: 26px;
+}
+
+.fm-loading {
+  min-height: 100dvh;
+  background: #a7b98a;
+}
