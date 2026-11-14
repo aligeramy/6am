@@ -1,5 +1,23 @@
 # 6am
 
+## 4M (`/4m`)
+
+Mind, Muscle, Money, Music. A plain Nokia-style screen: the date and four words. Tap a word for that pillar's own short list.
+
+- Tap a line to tick it. Ticked lines stay crossed out for the rest of the day, then move to **completed**.
+- Hold a line (or right-click it) to delete it.
+- Every open line shows when it was added and how many days ago, oldest first, so stale lines sit at the top.
+- **completed** (on the home screen for all four, inside a pillar for just that one) lists finished lines with their added and done dates,
+  for today, 7, 14 or 30 days, 3 or 6 months, a year, or a custom range.
+- Pages live in the URL hash (`#/music`, `#/completed`), so the phone's back gesture works. Everything is stored in the browser (`localStorage`, key `fourm-v1`).
+
+```bash
+pnpm dev                  # open http://localhost:3000/4m
+pnpm build:static         # -> 4m-static.zip (4M at "/"), for Netlify Drop
+```
+
+Code: `app/4m/` (route, font, stylesheet), `components/fourm/four-m.tsx` (all screens), `lib/fourm/store.ts` (data), `public/4m/` (icons, manifest).
+
 ## J.A.R.E.D. life dashboard (`/jared`)
 
 A private, voice-driven HUD for seven pillars of life (Health, Wealth, Career, Mind, Habits, Missions and Spirit), plus an ideas vault and a Workshop that changes the app itself.
@@ -59,7 +77,7 @@ Put them in `.env.local` locally, or in your hosting provider's settings.
 ### Deploy without a server (Netlify Drop)
 
 ```bash
-pnpm build:static    # -> jared-static.zip (dashboard at "/", no server route)
+pnpm build:static jared    # -> jared-static.zip (dashboard at "/", no server route)
 ```
 
 Drag the zip onto [app.netlify.com/drop](https://app.netlify.com/drop), or onto an existing site's **Deploys** tab to update it in place.
