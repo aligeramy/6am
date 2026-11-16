@@ -1,32 +1,40 @@
 "use client"
 
 import { differenceInCalendarDays, format, startOfDay, subDays, subMonths, subYears } from "date-fns"
-import { useEffect, useRef, useState, type FormEvent } from "react"
+import { Fragment, useEffect, useRef, useState, type FormEvent, type MouseEvent, type RefObject } from "react"
 import { DAY2, MAX_EVERY, WEEK, monthName, ordinal, ruleText, type Rule, type Unit } from "@/lib/fourm/repeat"
-import { PILLARS, useFourM, type PillarId, type Task } from "@/lib/fourm/store"
+import { PILLARS, useFourM, type PillarId, type Task, type Term } from "@/lib/fourm/store"
 
 /* Routes live in the URL hash so the phone's back gesture works and it runs as plain static files:
-   #/                 home
-   #/settings         settings
-   #/music            a pillar
-   #/music/repeating  that pillar's repeating lines
-   #/completed        everything completed; #/music/completed for one pillar */
+   #/                    home
+   #/settings            settings
+   #/terms               every term: open one, add one, rename or remove one
+   #/term/short          one term across all four pillars
+   #/music               a pillar, grouped by term
+   #/music/term/short    a pillar, one term
+   #/music/repeating     that pillar's repeating lines
+   #/completed           everything completed; #/music/completed for one pillar */
 type Route =
   | { view: "home" }
   | { view: "settings" }
-  | { view: "pillar"; pillar: PillarId }
+  | { view: "terms" }
+  | { view: "term"; term: string }
+  | { view: "pillar"; pillar: PillarId; term?: string }
   | { view: "repeating"; pillar: PillarId }
   | { view: "completed"; pillar?: PillarId }
 
 const isPillar = (s: string): s is PillarId => PILLARS.some((p) => p.id === s)
 
 function parse(hash: string): Route {
-  const [a, b] = hash.replace(/^#\/?/, "").split("/")
+  const [a, b, c] = hash.replace(/^#\/?/, "").split("/")
   if (a === "completed") return { view: "completed" }
   if (a === "settings") return { view: "settings" }
+  if (a === "terms") return { view: "terms" }
+  if (a === "term" && b) return { view: "term", term: b }
   if (a && isPillar(a)) {
     if (b === "completed") return { view: "completed", pillar: a }
     if (b === "repeating") return { view: "repeating", pillar: a }
+    if (b === "term" && c) return { view: "pillar", pillar: a, term: c }
     return { view: "pillar", pillar: a }
   }
   return { view: "home" }
@@ -61,6 +69,7 @@ const shortDate = (ts: number) => {
 }
 const dayName = (ts: number) => format(ts, "EEE d MMM").toLowerCase()
 const days = (n: number) => `${n} day${n === 1 ? "" : "s"}`
+const lines = (n: number) => `${n} line${n === 1 ? "" : "s"}`
 const since = (ts: number) => differenceInCalendarDays(new Date(), new Date(ts))
 
 /** The small grey lines under a line: how old it is, how it repeats (and since when it's due), or when it was done. */
@@ -86,6 +95,45 @@ const Meta = ({ lines }: { lines: string[] }) => (
 
 const name = (id: PillarId) => PILLARS.find((p) => p.id === id)!.name
 
+/** Focus an input with the cursor after its words, so editing starts at the end. */
+function useFocusEnd(ref: RefObject<HTMLInputElement | null>) {
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.focus()
+    el.setSelectionRange(el.value.length, el.value.length)
+  }, [ref])
+}
+
+/** Hold (or right-click) to open a line's options; `held` lets the click that ends a hold be ignored. */
+function useHold(onHold: () => void) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const held = useRef(false)
+  const clear = () => {
+    if (timer.current) clearTimeout(timer.current)
+  }
+  return {
+    held,
+    handlers: {
+      onPointerDown: () => {
+        held.current = false
+        clear()
+        timer.current = setTimeout(() => {
+          held.current = true
+          onHold()
+          navigator.vibrate?.(15)
+        }, 550)
+      },
+      onPointerUp: clear,
+      onPointerLeave: clear,
+      onContextMenu: (e: MouseEvent) => {
+        e.preventDefault()
+        onHold()
+      },
+    },
+  }
+}
+
 /* ───────── Home ───────── */
 
 function Home() {
@@ -103,6 +151,9 @@ function Home() {
         <a href="#/completed" className="fm-small">
           completed
         </a>
+        <a href="#/terms" className="fm-small">
+          terms
+        </a>
         <a href="#/settings" className="fm-small">
           settings
         </a>
@@ -111,35 +162,32 @@ function Home() {
   )
 }
 
-/* ───────── A pillar: your own short list ───────── */
+/* ───────── Lines ───────── */
 
-/** What a held (or tapped, on the repeating screen) line offers. */
-function Actions({ onEdit, onDelete, onKeep }: { onEdit?: () => void; onDelete: () => void; onKeep: () => void }) {
+/** A row of small underlined choices, e.g. edit · delete · keep. */
+function Actions({ items }: { items: [string, () => void][] }) {
   return (
     <div className="fm-meta fm-actions">
-      {onEdit && (
-        <>
-          <button type="button" className="fm-act" onClick={onEdit}>
-            edit
+      {items.map(([label, run], i) => (
+        <Fragment key={label}>
+          {i > 0 && "  ·  "}
+          <button type="button" className="fm-act" onClick={run}>
+            {label}
           </button>
-          {"  ·  "}
-        </>
-      )}
-      <button type="button" className="fm-act" onClick={onDelete}>
-        delete
-      </button>
-      {"  ·  "}
-      <button type="button" className="fm-act" onClick={onKeep}>
-        keep
-      </button>
+        </Fragment>
+      ))}
     </div>
   )
 }
 
 /** After an edit, say where the line went if it left the list it was on. */
-function editNote(before: Task, after: Task) {
+function editNote(before: Task, after: Task, terms: Term[]) {
   if (after.repeat && after.due !== undefined && after.due > startOfDay(new Date()).getTime()) return `"${after.text}" next due ${dayName(after.due)}`
   if (before.repeat && !after.repeat) return `"${after.text}" no longer repeats`
+  if (before.term !== after.term) {
+    const t = terms.find((x) => x.id === after.term)
+    return t ? `"${after.text}" moved to ${t.name.toLowerCase()}` : `"${after.text}" has no term now`
+  }
   return ""
 }
 
@@ -157,20 +205,8 @@ function useNote() {
 function Line({ task, onNote }: { task: Task; onNote: (note: string) => void }) {
   const { toggle, remove, edit } = useFourM.getState()
   const [mode, setMode] = useState<"idle" | "armed" | "editing">("idle")
-  const setArmed = (on: boolean) => setMode(on ? "armed" : "idle")
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const held = useRef(false)
-
   // Hold a line to edit or delete it; a normal tap ticks it.
-  const down = () => {
-    held.current = false
-    timer.current = setTimeout(() => {
-      held.current = true
-      setArmed(true)
-      if (navigator.vibrate) navigator.vibrate(15)
-    }, 550)
-  }
-  const up = () => timer.current && clearTimeout(timer.current)
+  const { held, handlers } = useHold(() => setMode("armed"))
 
   if (mode === "editing")
     return (
@@ -178,14 +214,15 @@ function Line({ task, onNote }: { task: Task; onNote: (note: string) => void }) 
         <LineForm
           text={task.text}
           draft={fromRule(task.repeat)}
+          term={task.term}
           label="Edit line"
           submit="save"
           cancel="cancel"
           onCancel={() => setMode("idle")}
-          onSubmit={(text, rule) => {
-            const after = edit(task.id, text, rule)
+          onSubmit={(text, rule, term) => {
+            const after = edit(task.id, text, rule, term)
             setMode("idle")
-            if (after) onNote(editNote(task, after))
+            if (after) onNote(editNote(task, after, useFourM.getState().terms))
           }}
         />
       </li>
@@ -196,28 +233,103 @@ function Line({ task, onNote }: { task: Task; onNote: (note: string) => void }) 
       <button
         type="button"
         className={task.completedAt ? "fm-task fm-done" : "fm-task"}
-        onPointerDown={down}
-        onPointerUp={up}
-        onPointerLeave={up}
-        onContextMenu={(e) => {
-          e.preventDefault()
-          setArmed(true)
-        }}
+        {...handlers}
         onClick={() => {
           if (held.current) return
           toggle(task.id)
         }}
-        onKeyDown={(e) => (e.key === "Delete" || e.key === "Backspace") && setArmed(true)}
+        onKeyDown={(e) => (e.key === "Delete" || e.key === "Backspace") && setMode("armed")}
       >
         <span className="fm-box">{task.completedAt ? "[x]" : "[ ]"}</span> <span className="fm-text">{task.text}</span>
       </button>
       {mode === "armed" ? (
         // Ticked lines can only be deleted (or unticked); editing is for open ones.
-        <Actions onEdit={task.completedAt ? undefined : () => setMode("editing")} onDelete={() => remove(task.id)} onKeep={() => setArmed(false)} />
+        <Actions
+          items={[
+            ...(task.completedAt ? [] : ([["edit", () => setMode("editing")]] as [string, () => void][])),
+            ["delete", () => remove(task.id)],
+            ["keep", () => setMode("idle")],
+          ]}
+        />
       ) : (
         <Meta lines={meta(task)} />
       )}
     </li>
+  )
+}
+
+/** A list's lines for today: open ones (stalest first, a repeating line counting from the day it fell due), and ones ticked today. */
+function useDay(list: Task[]) {
+  const autoClean = useFourM((s) => s.autoClean)
+  const today = useToday()
+  const [showDone, setShowDone] = useState(false)
+  const age = (t: Task) => (t.repeat ? t.due ?? 0 : t.createdAt)
+  const open = list.filter((t) => (t.repeat ? (t.due ?? 0) <= today : !t.completedAt)).sort((a, b) => age(a) - age(b))
+  const doneToday = list.filter((t) => t.completedAt && t.completedAt >= today).sort((a, b) => a.completedAt! - b.completedAt!)
+
+  useEffect(() => {
+    if (!doneToday.length) setShowDone(false)
+  }, [doneToday.length])
+
+  return {
+    shown: autoClean || showDone ? [...open, ...doneToday] : open,
+    toggle:
+      !autoClean && doneToday.length > 0 ? (
+        <button type="button" className="fm-toggle" aria-pressed={showDone} onClick={() => setShowDone((v) => !v)}>
+          {showDone ? "hide completed" : `show completed (${doneToday.length})`}
+        </button>
+      ) : null,
+  }
+}
+
+interface Group {
+  key: string
+  /** No title: the lines show without a heading. */
+  title?: string
+  href?: string
+  items: Task[]
+}
+
+/** Lines under ── HEADING ── dividers; a heading with a link opens that group on its own. */
+function Sections({ groups, onNote }: { groups: Group[]; onNote: (note: string) => void }) {
+  return (
+    <>
+      {groups
+        .filter((g) => g.items.length)
+        .map((g) => (
+          <Fragment key={g.key}>
+            {g.title &&
+              (g.href ? (
+                <a className="fm-section" href={g.href}>
+                  {g.title}
+                </a>
+              ) : (
+                <div className="fm-section">{g.title}</div>
+              ))}
+            <ul className="fm-list">
+              {g.items.map((t) => (
+                <Line key={t.id} task={t} onNote={onNote} />
+              ))}
+            </ul>
+          </Fragment>
+        ))}
+    </>
+  )
+}
+
+/** all · short · medium · long · …  The chosen one is inverted. */
+function TagRow({ terms, active, href, all }: { terms: Term[]; active?: string; href: (id: string) => string; all?: string }) {
+  if (!terms.length) return null
+  const tag = (key: string, link: string, label: string, on: boolean) => (
+    <a key={key} href={link} className={on ? "fm-range fm-on" : "fm-range"} aria-current={on ? "page" : undefined}>
+      {label}
+    </a>
+  )
+  return (
+    <nav className="fm-ranges fm-tags" aria-label="Terms">
+      {all !== undefined && tag("", all, "all", !active)}
+      {terms.map((t) => tag(t.id, href(t.id), t.name.toLowerCase(), t.id === active))}
+    </nav>
   )
 }
 
@@ -374,10 +486,80 @@ function RepeatPicker({ draft, onChange }: { draft: Draft; onChange: (d: Draft) 
   )
 }
 
-/** The words and repeat for a line: used both to add new lines and to edit one in place. */
+/** term: none · short · medium · long · …, plus "+ new" to make a term without leaving the line. */
+function TermPicker({ value, onChange }: { value?: string; onChange: (id?: string) => void }) {
+  const terms = useFourM((s) => s.terms)
+  const addTerm = useFourM((s) => s.addTerm)
+  const [open, setOpen] = useState(false)
+  const [naming, setNaming] = useState(false)
+  const [newName, setNewName] = useState("")
+  const current = terms.find((t) => t.id === value)
+  const create = () => {
+    const t = addTerm(newName)
+    if (!t) return
+    onChange(t.id)
+    setNaming(false)
+    setNewName("")
+  }
+  const chip = (key: string, label: string, on: boolean, run: () => void) => (
+    <button key={key} type="button" aria-pressed={on} className={on ? "fm-range fm-on" : "fm-range"} onClick={run}>
+      {label}
+    </button>
+  )
+  return (
+    <div className="fm-repeat">
+      <button type="button" className={open ? "fm-termbtn fm-open" : "fm-termbtn"} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        term: {current ? current.name.toLowerCase() : "none"}
+      </button>
+      {open && (
+        <div className="fm-ranges fm-termchips">
+          {chip("", "none", !current, () => onChange(undefined))}
+          {terms.map((t) => chip(t.id, t.name.toLowerCase(), t.id === current?.id, () => onChange(t.id)))}
+          {!naming && chip("+", "+ new", false, () => setNaming(true))}
+        </div>
+      )}
+      {open && naming && (
+        // Not a <form>: this sits inside the line's form.
+        <div className="fm-newterm">
+          <input
+            autoFocus
+            className="fm-input fm-input-sm"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault()
+                create()
+              } else if (e.key === "Escape") {
+                e.preventDefault()
+                setNaming(false)
+              }
+            }}
+            placeholder="term name"
+            aria-label="New term name"
+            enterKeyHint="done"
+            maxLength={24}
+          />
+          <div className="fm-formacts fm-formacts-sm">
+            <button type="button" className="fm-act" onClick={create}>
+              add term
+            </button>
+            {"  ·  "}
+            <button type="button" className="fm-act" onClick={() => setNaming(false)}>
+              cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** The words, term and repeat for a line: used both to add new lines and to edit one in place. */
 function LineForm({
   text: initialText = "",
   draft: initialDraft,
+  term: initialTerm,
   label,
   submit,
   cancel,
@@ -387,25 +569,20 @@ function LineForm({
 }: {
   text?: string
   draft?: Draft
+  term?: string
   label: string
   submit: string
   cancel: string
-  /** Clear after submitting, ready for the next line. */
+  /** Clear after submitting, ready for the next line (the term stays). */
   reset?: boolean
-  onSubmit: (text: string, rule: Rule | undefined) => void
+  onSubmit: (text: string, rule: Rule | undefined, term: string | undefined) => void
   onCancel: () => void
 }) {
   const [text, setText] = useState(initialText)
   const [draft, setDraft] = useState<Draft>(() => initialDraft ?? freshDraft())
+  const [term, setTerm] = useState(initialTerm)
   const input = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    // Focus with the cursor after the words, so editing starts at the end.
-    const el = input.current
-    if (!el) return
-    el.focus()
-    el.setSelectionRange(el.value.length, el.value.length)
-  }, [])
+  useFocusEnd(input)
 
   return (
     <form
@@ -413,7 +590,7 @@ function LineForm({
       onSubmit={(e: FormEvent) => {
         e.preventDefault()
         if (!text.trim()) return input.current?.focus()
-        onSubmit(text, toRule(draft))
+        onSubmit(text, toRule(draft), term)
         if (reset) {
           setText("")
           setDraft(freshDraft())
@@ -432,6 +609,7 @@ function LineForm({
         aria-label={label}
         maxLength={120}
       />
+      <TermPicker value={term} onChange={setTerm} />
       <RepeatPicker draft={draft} onChange={setDraft} />
       <div className="fm-formacts">
         <button type="submit" className="fm-act">
@@ -446,7 +624,7 @@ function LineForm({
   )
 }
 
-function AddLine({ pillar }: { pillar: PillarId }) {
+function AddLine({ pillar, term }: { pillar: PillarId; term?: string }) {
   const [open, setOpen] = useState(false)
   const [note, setNote] = useState("")
   const add = useFourM((s) => s.add)
@@ -461,14 +639,22 @@ function AddLine({ pillar }: { pillar: PillarId }) {
   return (
     <>
       <LineForm
+        term={term}
         label="New line"
         submit="add"
         cancel="close"
         reset
-        onSubmit={(text, rule) => {
-          const t = add(pillar, text, rule)
-          // A repeating line that doesn't fall on today won't show yet, so say when it will.
-          setNote(t?.due !== undefined && t.due > startOfDay(new Date()).getTime() ? `"${t.text}" starts ${dayName(t.due)}` : "")
+        onSubmit={(text, rule, chosen) => {
+          const t = add(pillar, text, rule, chosen)
+          // Say where a new line went if it won't show here yet: a repeat that starts later, or another term than this page's.
+          const other = term && chosen !== term ? useFourM.getState().terms.find((x) => x.id === chosen) : undefined
+          setNote(
+            t?.due !== undefined && t.due > startOfDay(new Date()).getTime()
+              ? `"${t.text}" starts ${dayName(t.due)}`
+              : t && term && chosen !== term
+                ? `"${t.text}" added to ${other ? other.name.toLowerCase() : "no term"}`
+                : "",
+          )
         }}
         onCancel={() => {
           setOpen(false)
@@ -480,24 +666,28 @@ function AddLine({ pillar }: { pillar: PillarId }) {
   )
 }
 
-function Pillar({ pillar }: { pillar: PillarId }) {
+/* ───────── A pillar: your own short list, by term ───────── */
+
+function Pillar({ pillar, term }: { pillar: PillarId; term?: string }) {
   const tasks = useFourM((s) => s.tasks)
-  const autoClean = useFourM((s) => s.autoClean)
-  const today = useToday()
-  const [showDone, setShowDone] = useState(false)
+  const terms = useFourM((s) => s.terms)
   const [note, setNote] = useNote()
+  const active = terms.find((t) => t.id === term)
 
   const mine = tasks.filter((t) => t.pillar === pillar)
-  // Open lines, oldest first so the stale ones rise to the top. A repeating line counts from the day it fell due.
-  const age = (t: Task) => (t.repeat ? t.due ?? 0 : t.createdAt)
-  const open = mine.filter((t) => (t.repeat ? (t.due ?? 0) <= today : !t.completedAt)).sort((a, b) => age(a) - age(b))
-  const doneToday = mine.filter((t) => t.completedAt && t.completedAt >= today).sort((a, b) => a.completedAt! - b.completedAt!)
+  const inView = active ? mine.filter((t) => t.term === active.id) : mine
+  const { shown, toggle } = useDay(inView)
   const repeating = mine.filter((t) => t.repeat).length
-  const shown = autoClean || showDone ? [...open, ...doneToday] : open
 
-  useEffect(() => {
-    if (!doneToday.length) setShowDone(false)
-  }, [doneToday.length])
+  // Under "all", lines sit under their term's heading, in the terms' order, then any without a term.
+  const known = (t: Task) => (t.term && terms.some((x) => x.id === t.term) ? t.term : "")
+  const grouped = !active && shown.some(known)
+  const groups: Group[] = grouped
+    ? [
+        ...terms.map((x) => ({ key: x.id, title: x.name.toUpperCase(), href: `#/${pillar}/term/${x.id}`, items: shown.filter((t) => known(t) === x.id) })),
+        { key: "", title: "NO TERM", items: shown.filter((t) => !known(t)) },
+      ]
+    : [{ key: "", items: shown }]
 
   return (
     <main className="fm-screen">
@@ -505,19 +695,12 @@ function Pillar({ pillar }: { pillar: PillarId }) {
         ‹ back
       </a>
       <h1 className="fm-title">{name(pillar)}</h1>
-      <ul className="fm-list">
-        {shown.map((t) => (
-          <Line key={t.id} task={t} onNote={setNote} />
-        ))}
-      </ul>
-      {!shown.length && <p className="fm-empty">{mine.length ? "nothing left today." : "nothing here yet."}</p>}
+      <TagRow terms={terms} active={active?.id} all={`#/${pillar}`} href={(id) => `#/${pillar}/term/${id}`} />
+      <Sections groups={groups} onNote={setNote} />
+      {!shown.length && <p className="fm-empty">{inView.length ? "nothing left today." : "nothing here yet."}</p>}
       {note && <div className="fm-meta fm-note">{note}</div>}
-      <AddLine pillar={pillar} />
-      {!autoClean && doneToday.length > 0 && (
-        <button type="button" className="fm-toggle" aria-pressed={showDone} onClick={() => setShowDone((v) => !v)}>
-          {showDone ? "hide completed" : `show completed (${doneToday.length})`}
-        </button>
-      )}
+      <AddLine key={active?.id ?? ""} pillar={pillar} term={active?.id} />
+      {toggle}
       <div className="fm-foot">
         {repeating > 0 && (
           <a href={`#/${pillar}/repeating`} className="fm-small">
@@ -528,6 +711,196 @@ function Pillar({ pillar }: { pillar: PillarId }) {
           completed history
         </a>
       </div>
+    </main>
+  )
+}
+
+/* ───────── Terms ───────── */
+
+/** A small form for a term's name: new, or renaming. */
+function NameForm({ text = "", label, submit, cancel, reset = false, onSubmit, onCancel }: { text?: string; label: string; submit: string; cancel: string; reset?: boolean; onSubmit: (name: string) => boolean; onCancel: () => void }) {
+  const [value, setValue] = useState(text)
+  const [taken, setTaken] = useState(false)
+  const input = useRef<HTMLInputElement>(null)
+  useFocusEnd(input)
+  return (
+    <form
+      className="fm-addform"
+      onSubmit={(e: FormEvent) => {
+        e.preventDefault()
+        if (!value.trim()) return input.current?.focus()
+        const ok = onSubmit(value)
+        setTaken(!ok)
+        if (ok && reset) setValue("")
+        input.current?.focus()
+      }}
+    >
+      <input
+        ref={input}
+        className="fm-input"
+        value={value}
+        onChange={(e) => {
+          setValue(e.target.value)
+          setTaken(false)
+        }}
+        onKeyDown={(e) => e.key === "Escape" && onCancel()}
+        placeholder="term name"
+        enterKeyHint="done"
+        aria-label={label}
+        maxLength={24}
+      />
+      {taken && <div className="fm-meta fm-note">another term has that name</div>}
+      <div className="fm-formacts">
+        <button type="submit" className="fm-act">
+          {submit}
+        </button>
+        {"  ·  "}
+        <button type="button" className="fm-act" onClick={onCancel}>
+          {cancel}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function TermItem({ term, count }: { term: Term; count: number }) {
+  const { renameTerm, removeTerm } = useFourM.getState()
+  const [mode, setMode] = useState<"idle" | "armed" | "renaming" | "removing">("idle")
+  const { held, handlers } = useHold(() => setMode("armed"))
+
+  if (mode === "renaming")
+    return (
+      <li className="fm-line">
+        <NameForm
+          text={term.name}
+          label="Rename term"
+          submit="save"
+          cancel="cancel"
+          onCancel={() => setMode("idle")}
+          onSubmit={(n) => {
+            const ok = renameTerm(term.id, n)
+            if (ok) setMode("idle")
+            return ok
+          }}
+        />
+      </li>
+    )
+
+  return (
+    <li className="fm-line">
+      <button
+        type="button"
+        className="fm-task"
+        {...handlers}
+        onClick={() => {
+          if (!held.current) window.location.hash = `#/term/${term.id}`
+        }}
+      >
+        {term.name.toLowerCase()}
+      </button>
+      {mode === "armed" ? (
+        <Actions
+          items={[
+            ["rename", () => setMode("renaming")],
+            ["remove", () => setMode("removing")],
+            ["keep", () => setMode("idle")],
+          ]}
+        />
+      ) : mode === "removing" ? (
+        <>
+          <div className="fm-meta">
+            remove &ldquo;{term.name.toLowerCase()}&rdquo;?{count > 0 && ` its ${lines(count)} ${count === 1 ? "stays" : "stay"}, without a term.`}
+          </div>
+          <Actions
+            items={[
+              ["remove", () => removeTerm(term.id)],
+              ["keep", () => setMode("idle")],
+            ]}
+          />
+        </>
+      ) : (
+        <Meta lines={[count ? lines(count) : "no lines"]} />
+      )}
+    </li>
+  )
+}
+
+function Terms() {
+  const terms = useFourM((s) => s.terms)
+  const tasks = useFourM((s) => s.tasks)
+  const addTerm = useFourM((s) => s.addTerm)
+  const [adding, setAdding] = useState(false)
+  // Lines still to do: open one-offs and repeating lines.
+  const count = (id: string) => tasks.filter((t) => t.term === id && !t.completedAt).length
+  return (
+    <main className="fm-screen">
+      <a href="#/" className="fm-small">
+        ‹ back
+      </a>
+      <h1 className="fm-title">TERMS</h1>
+      <ul className="fm-list">
+        {terms.map((t) => (
+          <TermItem key={t.id} term={t} count={count(t.id)} />
+        ))}
+      </ul>
+      {!terms.length && <p className="fm-empty">no terms.</p>}
+      {adding ? (
+        <NameForm
+          label="New term"
+          submit="add"
+          cancel="close"
+          reset
+          onCancel={() => setAdding(false)}
+          onSubmit={(n) => {
+            const before = useFourM.getState().terms.length
+            addTerm(n)
+            return useFourM.getState().terms.length > before
+          }}
+        />
+      ) : (
+        <button type="button" className="fm-add" onClick={() => setAdding(true)}>
+          + new term
+        </button>
+      )}
+      {terms.length > 0 && <div className="fm-small fm-foot fm-hint">hold a term to rename or remove it</div>}
+    </main>
+  )
+}
+
+/** One term across all four pillars, grouped by pillar. */
+function TermPage({ id }: { id: string }) {
+  const tasks = useFourM((s) => s.tasks)
+  const terms = useFourM((s) => s.terms)
+  const [note, setNote] = useNote()
+  const term = terms.find((t) => t.id === id)
+  const inView = term ? tasks.filter((t) => t.term === id) : []
+  const { shown, toggle } = useDay(inView)
+
+  if (!term)
+    return (
+      <main className="fm-screen">
+        <a href="#/terms" className="fm-small">
+          ‹ back
+        </a>
+        <h1 className="fm-title">TERMS</h1>
+        <p className="fm-empty">this term was removed.</p>
+      </main>
+    )
+
+  const groups: Group[] = PILLARS.map((p) => ({ key: p.id, title: p.name, href: `#/${p.id}/term/${id}`, items: shown.filter((t) => t.pillar === p.id) }))
+  return (
+    <main className="fm-screen">
+      <a href="#/terms" className="fm-small">
+        ‹ back
+      </a>
+      <h1 className="fm-title">{term.name.toUpperCase()}</h1>
+      <div className="fm-small">ALL FOUR</div>
+      <TagRow terms={terms} active={id} href={(t) => `#/term/${t}`} />
+      <Sections groups={groups} onNote={setNote} />
+      {!shown.length && <p className="fm-empty">{inView.length ? "nothing left today." : "nothing here yet."}</p>}
+      {note && <div className="fm-meta fm-note">{note}</div>}
+      {toggle}
+      <div className="fm-small fm-foot fm-hint">to add a line, open a pillar</div>
     </main>
   )
 }
@@ -547,12 +920,13 @@ function RepeatItem({ task, onNote }: { task: Task; onNote: (note: string) => vo
         <LineForm
           text={task.text}
           draft={fromRule(task.repeat)}
+          term={task.term}
           label="Edit line"
           submit="save"
           cancel="cancel"
           onCancel={() => setMode("idle")}
-          onSubmit={(text, rule) => {
-            const after = edit(task.id, text, rule)
+          onSubmit={(text, rule, term) => {
+            const after = edit(task.id, text, rule, term)
             setMode("idle")
             // Here the new date already shows under the line; only say so if it left this screen.
             if (after && !after.repeat) onNote(`"${after.text}" no longer repeats; it's on the ${name(after.pillar).toLowerCase()} list`)
@@ -567,7 +941,13 @@ function RepeatItem({ task, onNote }: { task: Task; onNote: (note: string) => vo
         {task.text}
       </button>
       {mode === "armed" ? (
-        <Actions onEdit={() => setMode("editing")} onDelete={() => remove(task.id)} onKeep={() => setMode("idle")} />
+        <Actions
+          items={[
+            ["edit", () => setMode("editing")],
+            ["delete", () => remove(task.id)],
+            ["keep", () => setMode("idle")],
+          ]}
+        />
       ) : (
         <Meta lines={[ruleText(task.repeat!), when]} />
       )}
@@ -724,11 +1104,15 @@ export default function FourM() {
   const route = useRoute()
   switch (route.view) {
     case "pillar":
-      return <Pillar pillar={route.pillar} />
+      return <Pillar key={route.pillar} pillar={route.pillar} term={route.term} />
     case "repeating":
       return <Repeating pillar={route.pillar} />
     case "completed":
       return <Completed pillar={route.pillar} />
+    case "terms":
+      return <Terms />
+    case "term":
+      return <TermPage key={route.term} id={route.term} />
     case "settings":
       return <Settings />
     default:
