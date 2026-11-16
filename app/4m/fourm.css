@@ -48,6 +48,11 @@ a.fm-small:active,
 a.fm-small:hover {
   color: var(--ink);
 }
+.fm-small.fm-hint {
+  font-size: 22px;
+  letter-spacing: 0.05em;
+  text-wrap: balance;
+}
 .fm-foot {
   margin-top: auto;
   padding-top: 56px;
@@ -80,6 +85,8 @@ a.fm-small:hover {
 
 /* Pillar */
 .fm-title {
+  text-wrap: balance;
+  overflow-wrap: anywhere;
   font-size: 56px;
   font-weight: normal;
   letter-spacing: 0.08em;
@@ -216,7 +223,8 @@ a.fm-small:hover {
   flex-direction: column;
   align-items: center;
 }
-.fm-repeatbtn {
+.fm-repeatbtn,
+.fm-termbtn {
   font: inherit;
   font-size: 24px;
   color: var(--soft);
@@ -224,11 +232,62 @@ a.fm-small:hover {
   border: 0;
   cursor: pointer;
 }
-.fm-repeatbtn.fm-open {
+.fm-repeatbtn.fm-open,
+.fm-termbtn.fm-open {
   color: var(--ink);
 }
-.fm-ranges.fm-presets {
+.fm-ranges.fm-presets,
+.fm-ranges.fm-termchips {
   margin-top: 12px;
+}
+.fm-newterm {
+  width: 100%;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.fm-input.fm-input-sm {
+  font-size: 26px;
+  max-width: 240px;
+}
+.fm-formacts.fm-formacts-sm {
+  margin-top: 10px;
+  font-size: 24px;
+}
+
+/* Terms: a tag row under the title, and ── SHORT ── dividers between groups */
+.fm-ranges.fm-tags {
+  margin-top: 18px;
+}
+a.fm-range {
+  text-decoration: none;
+}
+.fm-section {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 360px;
+  margin-top: 42px;
+  font-size: 26px;
+  letter-spacing: 0.14em;
+  color: var(--soft);
+  text-decoration: none;
+}
+.fm-section::before,
+.fm-section::after {
+  content: "";
+  flex: 1;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.55;
+}
+a.fm-section:active {
+  color: var(--ink);
+}
+.fm-section + .fm-list {
+  margin-top: 18px;
 }
 .fm-chips {
   display: flex;

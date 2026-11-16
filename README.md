@@ -9,12 +9,16 @@ Mind, Muscle, Money, Music. A plain Nokia-style screen: the date and four words.
 - Hold a line (or right-click it) for **edit · delete · keep**. Edit changes the words and the repeat in place: a one-off can become repeating and back,
   and a changed schedule starts again from today. On the **repeating** screen, tap a line for the same options.
 - Every open line shows when it was added and how many days ago, oldest first, so stale lines sit at the top.
+- **Terms** (short, medium, long, and your own, like "2027"): pick one for a line when adding or editing ("term: none" → choose, or "+ new").
+  A pillar shows a tag row (all · short · medium · …); under "all" its lines are grouped under ── SHORT ── style headings, and a tag or heading
+  opens that term alone (`#/music/term/short`), where new lines default to that term. **terms** on the home screen lists them all with counts;
+  tap one for that term across all four pillars (`#/term/short`), hold one to rename or remove it (its lines stay, without a term).
 - **Repeating lines**: when adding, tap "repeat" for every day, certain days, every few days, monthly, or custom
   (every N days, weeks on chosen days, months on a date, or years on a date). Each tick is logged in completed and the line comes back
   on its next day. A missed one stays on the list showing since when it's due. **repeating** in a pillar lists them all, including ones not due today.
 - **completed** (on the home screen for all four, inside a pillar for just that one) lists finished lines with their added and done dates,
   for today, 7, 14 or 30 days, 3 or 6 months, a year, or a custom range.
-- Pages live in the URL hash (`#/music`, `#/music/repeating`, `#/completed`, `#/settings`), so the phone's back gesture works. Everything is stored in the browser (`localStorage`, key `fourm-v1`).
+- Pages live in the URL hash (`#/music`, `#/music/term/short`, `#/music/repeating`, `#/terms`, `#/term/short`, `#/completed`, `#/settings`), so the phone's back gesture works. Everything is stored in the browser (`localStorage`, key `fourm-v1`).
 
 ```bash
 pnpm dev                  # open http://localhost:3000/4m
