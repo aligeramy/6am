@@ -113,27 +113,55 @@ function Home() {
 
 /* ───────── A pillar: your own short list ───────── */
 
-function Confirm({ onYes, onNo }: { onYes: () => void; onNo: () => void }) {
+/** What a held (or tapped, on the repeating screen) line offers. */
+function Actions({ onEdit, onDelete, onKeep }: { onEdit?: () => void; onDelete: () => void; onKeep: () => void }) {
   return (
-    <div className="fm-meta">
-      <button type="button" className="fm-act" onClick={onYes}>
+    <div className="fm-meta fm-actions">
+      {onEdit && (
+        <>
+          <button type="button" className="fm-act" onClick={onEdit}>
+            edit
+          </button>
+          {"  ·  "}
+        </>
+      )}
+      <button type="button" className="fm-act" onClick={onDelete}>
         delete
       </button>
       {"  ·  "}
-      <button type="button" className="fm-act" onClick={onNo}>
+      <button type="button" className="fm-act" onClick={onKeep}>
         keep
       </button>
     </div>
   )
 }
 
-function Line({ task }: { task: Task }) {
-  const { toggle, remove } = useFourM.getState()
-  const [armed, setArmed] = useState(false)
+/** After an edit, say where the line went if it left the list it was on. */
+function editNote(before: Task, after: Task) {
+  if (after.repeat && after.due !== undefined && after.due > startOfDay(new Date()).getTime()) return `"${after.text}" next due ${dayName(after.due)}`
+  if (before.repeat && !after.repeat) return `"${after.text}" no longer repeats`
+  return ""
+}
+
+/** A note that clears itself after a few seconds. */
+function useNote() {
+  const [note, setNote] = useState("")
+  useEffect(() => {
+    if (!note) return
+    const t = setTimeout(() => setNote(""), 6000)
+    return () => clearTimeout(t)
+  }, [note])
+  return [note, setNote] as const
+}
+
+function Line({ task, onNote }: { task: Task; onNote: (note: string) => void }) {
+  const { toggle, remove, edit } = useFourM.getState()
+  const [mode, setMode] = useState<"idle" | "armed" | "editing">("idle")
+  const setArmed = (on: boolean) => setMode(on ? "armed" : "idle")
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const held = useRef(false)
 
-  // Hold a line to delete it; a normal tap ticks it.
+  // Hold a line to edit or delete it; a normal tap ticks it.
   const down = () => {
     held.current = false
     timer.current = setTimeout(() => {
@@ -143,6 +171,25 @@ function Line({ task }: { task: Task }) {
     }, 550)
   }
   const up = () => timer.current && clearTimeout(timer.current)
+
+  if (mode === "editing")
+    return (
+      <li className="fm-line">
+        <LineForm
+          text={task.text}
+          draft={fromRule(task.repeat)}
+          label="Edit line"
+          submit="save"
+          cancel="cancel"
+          onCancel={() => setMode("idle")}
+          onSubmit={(text, rule) => {
+            const after = edit(task.id, text, rule)
+            setMode("idle")
+            if (after) onNote(editNote(task, after))
+          }}
+        />
+      </li>
+    )
 
   return (
     <li className="fm-line">
@@ -164,7 +211,12 @@ function Line({ task }: { task: Task }) {
       >
         <span className="fm-box">{task.completedAt ? "[x]" : "[ ]"}</span> <span className="fm-text">{task.text}</span>
       </button>
-      {armed ? <Confirm onYes={() => remove(task.id)} onNo={() => setArmed(false)} /> : <Meta lines={meta(task)} />}
+      {mode === "armed" ? (
+        // Ticked lines can only be deleted (or unticked); editing is for open ones.
+        <Actions onEdit={task.completedAt ? undefined : () => setMode("editing")} onDelete={() => remove(task.id)} onKeep={() => setArmed(false)} />
+      ) : (
+        <Meta lines={meta(task)} />
+      )}
     </li>
   )
 }
@@ -217,6 +269,18 @@ function toRule(d: Draft): Rule | undefined {
       return r
     }
   }
+}
+
+/** The picker's state for an existing line's rule, so editing opens on what's set. */
+function fromRule(r?: Rule): Draft {
+  const d = freshDraft()
+  if (!r) return d
+  const base: Draft = { ...d, every: r.every, unit: r.unit, days: r.days?.length ? r.days : d.days, date: r.date ?? d.date, month: r.month ?? d.month }
+  if (r.unit === "day" && r.every === 1) return { ...base, preset: "daily" }
+  if (r.unit === "day" && r.every <= 60) return { ...base, preset: "few", few: r.every }
+  if (r.unit === "week" && r.every === 1) return { ...base, preset: "days" }
+  if (r.unit === "month" && r.every === 1) return { ...base, preset: "monthly" }
+  return { ...base, preset: "custom" }
 }
 
 function Stepper({ value, min, max, onChange, show = String, label }: { value: number; min: number; max: number; onChange: (n: number) => void; show?: (n: number) => string; label: string }) {
@@ -310,12 +374,81 @@ function RepeatPicker({ draft, onChange }: { draft: Draft; onChange: (d: Draft) 
   )
 }
 
+/** The words and repeat for a line: used both to add new lines and to edit one in place. */
+function LineForm({
+  text: initialText = "",
+  draft: initialDraft,
+  label,
+  submit,
+  cancel,
+  reset = false,
+  onSubmit,
+  onCancel,
+}: {
+  text?: string
+  draft?: Draft
+  label: string
+  submit: string
+  cancel: string
+  /** Clear after submitting, ready for the next line. */
+  reset?: boolean
+  onSubmit: (text: string, rule: Rule | undefined) => void
+  onCancel: () => void
+}) {
+  const [text, setText] = useState(initialText)
+  const [draft, setDraft] = useState<Draft>(() => initialDraft ?? freshDraft())
+  const input = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    // Focus with the cursor after the words, so editing starts at the end.
+    const el = input.current
+    if (!el) return
+    el.focus()
+    el.setSelectionRange(el.value.length, el.value.length)
+  }, [])
+
+  return (
+    <form
+      className="fm-addform"
+      onSubmit={(e: FormEvent) => {
+        e.preventDefault()
+        if (!text.trim()) return input.current?.focus()
+        onSubmit(text, toRule(draft))
+        if (reset) {
+          setText("")
+          setDraft(freshDraft())
+          input.current?.focus() // stay open for the next line
+        }
+      }}
+    >
+      <input
+        ref={input}
+        className="fm-input"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => e.key === "Escape" && onCancel()}
+        placeholder="new line"
+        enterKeyHint="done"
+        aria-label={label}
+        maxLength={120}
+      />
+      <RepeatPicker draft={draft} onChange={setDraft} />
+      <div className="fm-formacts">
+        <button type="submit" className="fm-act">
+          {submit}
+        </button>
+        {"  ·  "}
+        <button type="button" className="fm-act" onClick={onCancel}>
+          {cancel}
+        </button>
+      </div>
+    </form>
+  )
+}
+
 function AddLine({ pillar }: { pillar: PillarId }) {
   const [open, setOpen] = useState(false)
-  const [text, setText] = useState("")
-  const [draft, setDraft] = useState(freshDraft)
   const [note, setNote] = useState("")
-  const input = useRef<HTMLInputElement>(null)
   const add = useFourM((s) => s.add)
 
   if (!open)
@@ -325,50 +458,25 @@ function AddLine({ pillar }: { pillar: PillarId }) {
       </button>
     )
 
-  const close = () => {
-    setOpen(false)
-    setText("")
-    setDraft(freshDraft())
-    setNote("")
-  }
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    const t = add(pillar, text, toRule(draft))
-    if (t) {
-      setText("")
-      setDraft(freshDraft())
-      // A repeating line that doesn't fall on today won't show yet, so say when it will.
-      setNote(t.due !== undefined && t.due > startOfDay(new Date()).getTime() ? `"${t.text}" starts ${dayName(t.due)}` : "")
-    }
-    input.current?.focus() // stay open for the next line
-  }
-
   return (
-    <form className="fm-addform" onSubmit={submit}>
-      <input
-        ref={input}
-        autoFocus
-        className="fm-input"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => e.key === "Escape" && close()}
-        placeholder="new line"
-        enterKeyHint="done"
-        aria-label="New line"
-        maxLength={120}
+    <>
+      <LineForm
+        label="New line"
+        submit="add"
+        cancel="close"
+        reset
+        onSubmit={(text, rule) => {
+          const t = add(pillar, text, rule)
+          // A repeating line that doesn't fall on today won't show yet, so say when it will.
+          setNote(t?.due !== undefined && t.due > startOfDay(new Date()).getTime() ? `"${t.text}" starts ${dayName(t.due)}` : "")
+        }}
+        onCancel={() => {
+          setOpen(false)
+          setNote("")
+        }}
       />
-      <RepeatPicker draft={draft} onChange={setDraft} />
-      <div className="fm-formacts">
-        <button type="submit" className="fm-act">
-          add
-        </button>
-        {"  ·  "}
-        <button type="button" className="fm-act" onClick={close}>
-          close
-        </button>
-      </div>
       {note && <div className="fm-meta fm-note">{note}</div>}
-    </form>
+    </>
   )
 }
 
@@ -377,6 +485,7 @@ function Pillar({ pillar }: { pillar: PillarId }) {
   const autoClean = useFourM((s) => s.autoClean)
   const today = useToday()
   const [showDone, setShowDone] = useState(false)
+  const [note, setNote] = useNote()
 
   const mine = tasks.filter((t) => t.pillar === pillar)
   // Open lines, oldest first so the stale ones rise to the top. A repeating line counts from the day it fell due.
@@ -398,10 +507,11 @@ function Pillar({ pillar }: { pillar: PillarId }) {
       <h1 className="fm-title">{name(pillar)}</h1>
       <ul className="fm-list">
         {shown.map((t) => (
-          <Line key={t.id} task={t} />
+          <Line key={t.id} task={t} onNote={setNote} />
         ))}
       </ul>
       {!shown.length && <p className="fm-empty">{mine.length ? "nothing left today." : "nothing here yet."}</p>}
+      {note && <div className="fm-meta fm-note">{note}</div>}
       <AddLine pillar={pillar} />
       {!autoClean && doneToday.length > 0 && (
         <button type="button" className="fm-toggle" aria-pressed={showDone} onClick={() => setShowDone((v) => !v)}>
@@ -424,19 +534,40 @@ function Pillar({ pillar }: { pillar: PillarId }) {
 
 /* ───────── A pillar's repeating lines, including ones not due today ───────── */
 
-function RepeatItem({ task }: { task: Task }) {
-  const remove = useFourM((s) => s.remove)
-  const [armed, setArmed] = useState(false)
+function RepeatItem({ task, onNote }: { task: Task; onNote: (note: string) => void }) {
+  const { remove, edit } = useFourM.getState()
+  const [mode, setMode] = useState<"idle" | "armed" | "editing">("idle")
   const due = task.due ?? Date.now()
   const late = since(due)
   const when = late > 0 ? `due ${shortDate(due)} · ${days(late)}` : late === 0 ? "due today" : `next ${dayName(due)}`
+
+  if (mode === "editing")
+    return (
+      <li className="fm-line">
+        <LineForm
+          text={task.text}
+          draft={fromRule(task.repeat)}
+          label="Edit line"
+          submit="save"
+          cancel="cancel"
+          onCancel={() => setMode("idle")}
+          onSubmit={(text, rule) => {
+            const after = edit(task.id, text, rule)
+            setMode("idle")
+            // Here the new date already shows under the line; only say so if it left this screen.
+            if (after && !after.repeat) onNote(`"${after.text}" no longer repeats; it's on the ${name(after.pillar).toLowerCase()} list`)
+          }}
+        />
+      </li>
+    )
+
   return (
     <li className="fm-line">
-      <button type="button" className="fm-task" onClick={() => setArmed((a) => !a)}>
+      <button type="button" className="fm-task" onClick={() => setMode((m) => (m === "armed" ? "idle" : "armed"))}>
         {task.text}
       </button>
-      {armed ? (
-        <Confirm onYes={() => remove(task.id)} onNo={() => setArmed(false)} />
+      {mode === "armed" ? (
+        <Actions onEdit={() => setMode("editing")} onDelete={() => remove(task.id)} onKeep={() => setMode("idle")} />
       ) : (
         <Meta lines={[ruleText(task.repeat!), when]} />
       )}
@@ -447,6 +578,7 @@ function RepeatItem({ task }: { task: Task }) {
 function Repeating({ pillar }: { pillar: PillarId }) {
   const tasks = useFourM((s) => s.tasks)
   useToday()
+  const [note, setNote] = useNote()
   const list = tasks.filter((t) => t.pillar === pillar && t.repeat).sort((a, b) => (a.due ?? 0) - (b.due ?? 0))
   return (
     <main className="fm-screen">
@@ -457,11 +589,12 @@ function Repeating({ pillar }: { pillar: PillarId }) {
       <div className="fm-small">{name(pillar)}</div>
       <ul className="fm-list">
         {list.map((t) => (
-          <RepeatItem key={t.id} task={t} />
+          <RepeatItem key={t.id} task={t} onNote={setNote} />
         ))}
       </ul>
       {!list.length && <p className="fm-empty">no repeating lines.</p>}
-      {list.length > 0 && <div className="fm-small fm-foot fm-hint">tap a line to delete it</div>}
+      {note && <div className="fm-meta fm-note">{note}</div>}
+      {list.length > 0 && <div className="fm-small fm-foot fm-hint">tap a line to edit or delete it</div>}
     </main>
   )
 }

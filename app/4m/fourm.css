@@ -200,6 +200,14 @@ a.fm-small:hover {
 .fm-note {
   margin-top: 12px;
 }
+.fm-actions {
+  font-size: 24px;
+  margin-top: 6px;
+}
+/* Editing happens in place, inside the list. */
+.fm-line .fm-addform {
+  margin-top: 0;
+}
 
 /* Repeat picker */
 .fm-repeat {

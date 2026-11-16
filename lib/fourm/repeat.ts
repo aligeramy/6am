@@ -95,3 +95,12 @@ export function ruleText(r: Rule): string {
       return `${n === 1 ? "yearly" : `every ${n} years`} on ${r.date ?? 1} ${monthName(r.month ?? 0)}`
   }
 }
+
+/** Whether two rules fall on the same days (ignores `start`). */
+export function sameRule(a: Rule, b: Rule): boolean {
+  if (a.unit !== b.unit || a.every !== b.every) return false
+  if (a.unit === "week") return [...(a.days ?? [])].sort().join() === [...(b.days ?? [])].sort().join()
+  if (a.unit === "month") return a.date === b.date
+  if (a.unit === "year") return a.date === b.date && a.month === b.month
+  return true
+}

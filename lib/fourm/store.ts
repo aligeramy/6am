@@ -3,7 +3,7 @@
 import { addDays, startOfDay } from "date-fns"
 import { create } from "zustand"
 import { createJSONStorage, persist } from "zustand/middleware"
-import { nextOn, type Rule } from "./repeat"
+import { nextOn, sameRule, type Rule } from "./repeat"
 
 export type PillarId = "mind" | "muscle" | "money" | "music"
 
@@ -37,6 +37,8 @@ interface FourM {
   /** On: ticked lines stay crossed out until tomorrow. Off: they leave the list right away. */
   autoClean: boolean
   add: (pillar: PillarId, text: string, repeat?: Rule) => Task | undefined
+  /** Change an open line's words and how it repeats (no rule = a one-off line). */
+  edit: (id: string, text: string, repeat?: Rule) => Task | undefined
   toggle: (id: string) => void
   remove: (id: string) => void
   setAutoClean: (on: boolean) => void
@@ -62,6 +64,32 @@ export const useFourM = create<FourM>()(
         }
         set((s) => ({ tasks: [...s.tasks, task] }))
         return task
+      },
+      edit: (id, text, rule) => {
+        let updated: Task | undefined
+        set((s) => ({
+          tasks: s.tasks.map((x) => {
+            if (x.id !== id) return x
+            const now = Date.now()
+            const next: Task = { ...x, text: text.trim() || x.text }
+            if (!x.completedAt) {
+              if (!rule) {
+                // No longer repeats: it becomes a normal line, counted from when it was due so a missed one stays stale.
+                if (x.repeat) next.createdAt = Math.min(x.due ?? now, now)
+                delete next.repeat
+                delete next.due
+              } else if (!x.repeat || !sameRule(x.repeat, rule)) {
+                // New or changed schedule: it starts again from today.
+                const start = startOfDay(now).getTime()
+                next.repeat = { ...rule, start }
+                next.due = nextOn(next.repeat, start)
+              }
+            }
+            updated = next
+            return next
+          }),
+        }))
+        return updated
       },
       toggle: (id) =>
         set((s) => {
