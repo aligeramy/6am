@@ -4,19 +4,23 @@
 
 Mind, Muscle, Money, Music. A plain Nokia-style screen: the date and four words. Tap a word for that pillar's own short list.
 
-- Tap a line to tick it. Ticked lines stay crossed out for the rest of the day, then move to **completed**.
+- Tap a line to tick it. It leaves the list right away and goes to **completed**; **show completed** in the pillar brings today's back into view (tap one again to untick it).
+- **settings → daily auto clean**: when on, ticked lines stay crossed out for the rest of the day and are cleaned off into completed the next day.
 - Hold a line (or right-click it) to delete it.
 - Every open line shows when it was added and how many days ago, oldest first, so stale lines sit at the top.
+- **Repeating lines**: when adding, tap "repeat" for every day, certain days, every few days, monthly, or custom
+  (every N days, weeks on chosen days, months on a date, or years on a date). Each tick is logged in completed and the line comes back
+  on its next day. A missed one stays on the list showing since when it's due. **repeating** in a pillar lists them all, including ones not due today.
 - **completed** (on the home screen for all four, inside a pillar for just that one) lists finished lines with their added and done dates,
   for today, 7, 14 or 30 days, 3 or 6 months, a year, or a custom range.
-- Pages live in the URL hash (`#/music`, `#/completed`), so the phone's back gesture works. Everything is stored in the browser (`localStorage`, key `fourm-v1`).
+- Pages live in the URL hash (`#/music`, `#/music/repeating`, `#/completed`, `#/settings`), so the phone's back gesture works. Everything is stored in the browser (`localStorage`, key `fourm-v1`).
 
 ```bash
 pnpm dev                  # open http://localhost:3000/4m
 pnpm build:static         # -> 4m-static.zip (4M at "/"), for Netlify Drop
 ```
 
-Code: `app/4m/` (route, font, stylesheet), `components/fourm/four-m.tsx` (all screens), `lib/fourm/store.ts` (data), `public/4m/` (icons, manifest).
+Code: `app/4m/` (route, font, stylesheet), `components/fourm/four-m.tsx` (all screens), `lib/fourm/store.ts` (data), `lib/fourm/repeat.ts` (repeat rules), `public/4m/` (icons, manifest).
 
 ## J.A.R.E.D. life dashboard (`/jared`)
 
