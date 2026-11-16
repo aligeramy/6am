@@ -6,7 +6,9 @@ Mind, Muscle, Money, Music. A plain Nokia-style screen: the date and four words.
 
 - Tap a line to tick it. It leaves the list right away and goes to **completed**; **show completed** in the pillar brings today's back into view (tap one again to untick it).
 - **settings → daily auto clean**: when on, ticked lines stay crossed out for the rest of the day and are cleaned off into completed the next day.
-- Hold a line (or right-click it) for **edit · delete · keep**. Edit changes the words and the repeat in place: a one-off can become repeating and back,
+- Hold a line (or right-click it) for **move · edit · delete · keep**. **move** shows up · down · done; moved lines keep their place in their list,
+  and lines never moved follow, stalest first. Terms move the same way on the terms page.
+- Edit changes the words and the repeat in place: a one-off can become repeating and back,
   and a changed schedule starts again from today. On the **repeating** screen, tap a line for the same options.
 - Every open line shows when it was added and how many days ago, oldest first, so stale lines sit at the top.
 - **Terms** (short, medium, long, and your own, like "2027"): pick one for a line when adding or editing ("term: none" → choose, or "+ new").

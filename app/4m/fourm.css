@@ -211,6 +211,16 @@ a.fm-small:hover {
   font-size: 24px;
   margin-top: 6px;
 }
+.fm-act:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+/* The line being moved is shown inverted. */
+.fm-moving .fm-task,
+.fm-moving .fm-task .fm-box {
+  background: var(--ink);
+  color: var(--lcd);
+}
 /* Editing happens in place, inside the list. */
 .fm-line .fm-addform {
   margin-top: 0;

@@ -32,6 +32,8 @@ export interface Task {
   of?: string
   /** The id of the line's term (short, medium, long, or one of your own); none if unset. */
   term?: string
+  /** Its place in its list once you've moved lines there; lines never moved follow, stalest first. */
+  pos?: number
 }
 
 /** A goal term, used like a tag. Short, medium and long come built in; all of them can be renamed or removed. */
@@ -63,6 +65,10 @@ interface FourM {
   renameTerm: (id: string, name: string) => boolean
   /** Removes the term; its lines stay, without a term. */
   removeTerm: (id: string) => void
+  /** Swap a term with the one above (-1) or below (1). */
+  moveTerm: (id: string, dir: -1 | 1) => void
+  /** Give these lines their places in this order. */
+  reorder: (ids: string[]) => void
 }
 
 const TERM_MAX = 24
@@ -100,6 +106,7 @@ export const useFourM = create<FourM>()(
             const next: Task = { ...x, text: text.trim() || x.text }
             if (term) next.term = term
             else delete next.term
+            if (term !== x.term) delete next.pos // a new list: it takes its place by age there
             if (!x.completedAt) {
               if (!rule) {
                 // No longer repeats: it becomes a normal line, counted from when it was due so a missed one stays stale.
@@ -154,6 +161,20 @@ export const useFourM = create<FourM>()(
         set((s) => ({ terms: s.terms.map((t) => (t.id === id ? { ...t, name: n } : t)) }))
         return true
       },
+      moveTerm: (id, dir) =>
+        set((s) => {
+          const i = s.terms.findIndex((t) => t.id === id)
+          const j = i + dir
+          if (i < 0 || j < 0 || j >= s.terms.length) return s
+          const terms = [...s.terms]
+          ;[terms[i], terms[j]] = [terms[j], terms[i]]
+          return { terms }
+        }),
+      reorder: (ids) =>
+        set((s) => {
+          const at = new Map(ids.map((id, i) => [id, i]))
+          return { tasks: s.tasks.map((t) => (at.has(t.id) ? { ...t, pos: at.get(t.id) } : t)) }
+        }),
       removeTerm: (id) =>
         set((s) => ({
           terms: s.terms.filter((t) => t.id !== id),
