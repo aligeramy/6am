@@ -164,14 +164,16 @@ function Home() {
 
 /* ───────── Lines ───────── */
 
+type Action = [label: string, run: () => void, disabled?: boolean]
+
 /** A row of small underlined choices, e.g. edit · delete · keep. */
-function Actions({ items }: { items: [string, () => void][] }) {
+function Actions({ items }: { items: Action[] }) {
   return (
     <div className="fm-meta fm-actions">
-      {items.map(([label, run], i) => (
+      {items.map(([label, run, disabled], i) => (
         <Fragment key={label}>
           {i > 0 && "  ·  "}
-          <button type="button" className="fm-act" onClick={run}>
+          <button type="button" className="fm-act" disabled={disabled} onClick={run}>
             {label}
           </button>
         </Fragment>
@@ -179,6 +181,19 @@ function Actions({ items }: { items: [string, () => void][] }) {
     </div>
   )
 }
+
+/** How a line or term can move in its list: which ways are open, and the move itself. */
+interface Mover {
+  up: boolean
+  down: boolean
+  go: (dir: -1 | 1) => void
+}
+
+const moveActions = (m: Mover, done: () => void): Action[] => [
+  ["up", () => m.go(-1), !m.up],
+  ["down", () => m.go(1), !m.down],
+  ["done", done],
+]
 
 /** After an edit, say where the line went if it left the list it was on. */
 function editNote(before: Task, after: Task, terms: Term[]) {
@@ -202,9 +217,9 @@ function useNote() {
   return [note, setNote] as const
 }
 
-function Line({ task, onNote }: { task: Task; onNote: (note: string) => void }) {
+function Line({ task, onNote, mover }: { task: Task; onNote: (note: string) => void; mover?: Mover }) {
   const { toggle, remove, edit } = useFourM.getState()
-  const [mode, setMode] = useState<"idle" | "armed" | "editing">("idle")
+  const [mode, setMode] = useState<"idle" | "armed" | "editing" | "moving">("idle")
   // Hold a line to edit or delete it; a normal tap ticks it.
   const { held, handlers } = useHold(() => setMode("armed"))
 
@@ -228,25 +243,29 @@ function Line({ task, onNote }: { task: Task; onNote: (note: string) => void }) 
       </li>
     )
 
+  const moving = mode === "moving" && mover
   return (
-    <li className="fm-line">
+    <li className={moving ? "fm-line fm-moving" : "fm-line"}>
       <button
         type="button"
         className={task.completedAt ? "fm-task fm-done" : "fm-task"}
         {...handlers}
         onClick={() => {
-          if (held.current) return
+          if (held.current || moving) return
           toggle(task.id)
         }}
         onKeyDown={(e) => (e.key === "Delete" || e.key === "Backspace") && setMode("armed")}
       >
         <span className="fm-box">{task.completedAt ? "[x]" : "[ ]"}</span> <span className="fm-text">{task.text}</span>
       </button>
-      {mode === "armed" ? (
-        // Ticked lines can only be deleted (or unticked); editing is for open ones.
+      {moving ? (
+        <Actions items={moveActions(mover, () => setMode("idle"))} />
+      ) : mode === "armed" ? (
+        // Ticked lines can only be deleted (or unticked); moving and editing are for open ones.
         <Actions
           items={[
-            ...(task.completedAt ? [] : ([["edit", () => setMode("editing")]] as [string, () => void][])),
+            ...(mover ? ([["move", () => setMode("moving")]] as Action[]) : []),
+            ...(task.completedAt ? [] : ([["edit", () => setMode("editing")]] as Action[])),
             ["delete", () => remove(task.id)],
             ["keep", () => setMode("idle")],
           ]}
@@ -263,8 +282,9 @@ function useDay(list: Task[]) {
   const autoClean = useFourM((s) => s.autoClean)
   const today = useToday()
   const [showDone, setShowDone] = useState(false)
-  const age = (t: Task) => (t.repeat ? t.due ?? 0 : t.createdAt)
-  const open = list.filter((t) => (t.repeat ? (t.due ?? 0) <= today : !t.completedAt)).sort((a, b) => age(a) - age(b))
+  // Lines you've moved keep their places (small numbers, so first); the rest follow by age.
+  const order = (t: Task) => t.pos ?? (t.repeat ? t.due ?? 0 : t.createdAt)
+  const open = list.filter((t) => (t.repeat ? (t.due ?? 0) <= today : !t.completedAt)).sort((a, b) => order(a) - order(b))
   const doneToday = list.filter((t) => t.completedAt && t.completedAt >= today).sort((a, b) => a.completedAt! - b.completedAt!)
 
   useEffect(() => {
@@ -292,6 +312,24 @@ interface Group {
 
 /** Lines under ── HEADING ── dividers; a heading with a link opens that group on its own. */
 function Sections({ groups, onNote }: { groups: Group[]; onNote: (note: string) => void }) {
+  const reorder = useFourM((s) => s.reorder)
+  // Moving swaps a line with its neighbour among the group's open lines, and fixes every open line's place there.
+  const mover = (items: Task[], t: Task): Mover | undefined => {
+    const open = items.filter((x) => !x.completedAt)
+    const i = open.indexOf(t)
+    if (i < 0 || open.length < 2) return undefined
+    return {
+      up: i > 0,
+      down: i < open.length - 1,
+      go: (dir) => {
+        const ids = open.map((x) => x.id)
+        const j = i + dir
+        if (j < 0 || j >= ids.length) return
+        ;[ids[i], ids[j]] = [ids[j], ids[i]]
+        reorder(ids)
+      },
+    }
+  }
   return (
     <>
       {groups
@@ -308,7 +346,7 @@ function Sections({ groups, onNote }: { groups: Group[]; onNote: (note: string) 
               ))}
             <ul className="fm-list">
               {g.items.map((t) => (
-                <Line key={t.id} task={t} onNote={onNote} />
+                <Line key={t.id} task={t} onNote={onNote} mover={mover(g.items, t)} />
               ))}
             </ul>
           </Fragment>
@@ -763,9 +801,9 @@ function NameForm({ text = "", label, submit, cancel, reset = false, onSubmit, o
   )
 }
 
-function TermItem({ term, count }: { term: Term; count: number }) {
+function TermItem({ term, count, mover }: { term: Term; count: number; mover?: Mover }) {
   const { renameTerm, removeTerm } = useFourM.getState()
-  const [mode, setMode] = useState<"idle" | "armed" | "renaming" | "removing">("idle")
+  const [mode, setMode] = useState<"idle" | "armed" | "renaming" | "removing" | "moving">("idle")
   const { held, handlers } = useHold(() => setMode("armed"))
 
   if (mode === "renaming")
@@ -786,21 +824,25 @@ function TermItem({ term, count }: { term: Term; count: number }) {
       </li>
     )
 
+  const moving = mode === "moving" && mover
   return (
-    <li className="fm-line">
+    <li className={moving ? "fm-line fm-moving" : "fm-line"}>
       <button
         type="button"
         className="fm-task"
         {...handlers}
         onClick={() => {
-          if (!held.current) window.location.hash = `#/term/${term.id}`
+          if (!held.current && !moving) window.location.hash = `#/term/${term.id}`
         }}
       >
         {term.name.toLowerCase()}
       </button>
-      {mode === "armed" ? (
+      {moving ? (
+        <Actions items={moveActions(mover, () => setMode("idle"))} />
+      ) : mode === "armed" ? (
         <Actions
           items={[
+            ...(mover ? ([["move", () => setMode("moving")]] as Action[]) : []),
             ["rename", () => setMode("renaming")],
             ["remove", () => setMode("removing")],
             ["keep", () => setMode("idle")],
@@ -829,6 +871,7 @@ function Terms() {
   const terms = useFourM((s) => s.terms)
   const tasks = useFourM((s) => s.tasks)
   const addTerm = useFourM((s) => s.addTerm)
+  const moveTerm = useFourM((s) => s.moveTerm)
   const [adding, setAdding] = useState(false)
   // Lines still to do: open one-offs and repeating lines.
   const count = (id: string) => tasks.filter((t) => t.term === id && !t.completedAt).length
@@ -839,8 +882,13 @@ function Terms() {
       </a>
       <h1 className="fm-title">TERMS</h1>
       <ul className="fm-list">
-        {terms.map((t) => (
-          <TermItem key={t.id} term={t} count={count(t.id)} />
+        {terms.map((t, i) => (
+          <TermItem
+            key={t.id}
+            term={t}
+            count={count(t.id)}
+            mover={terms.length > 1 ? { up: i > 0, down: i < terms.length - 1, go: (dir) => moveTerm(t.id, dir) } : undefined}
+          />
         ))}
       </ul>
       {!terms.length && <p className="fm-empty">no terms.</p>}
@@ -862,7 +910,7 @@ function Terms() {
           + new term
         </button>
       )}
-      {terms.length > 0 && <div className="fm-small fm-foot fm-hint">hold a term to rename or remove it</div>}
+      {terms.length > 0 && <div className="fm-small fm-foot fm-hint">hold a term to move, rename or remove it</div>}
     </main>
   )
 }
