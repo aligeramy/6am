@@ -51,6 +51,10 @@ a.fm-small:hover {
 .fm-foot {
   margin-top: auto;
   padding-top: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
 }
 
 /* Home: four words */
@@ -91,6 +95,7 @@ a.fm-small:hover {
   gap: 18px;
 }
 .fm-task {
+  text-wrap: balance;
   font: inherit;
   font-size: 32px;
   line-height: 1.15;
@@ -116,7 +121,9 @@ a.fm-small:hover {
   user-select: text;
 }
 .fm-meta {
+  text-wrap: balance;
   font-size: 20px;
+  line-height: 1.3;
   color: var(--soft);
   letter-spacing: 0.05em;
   margin-top: 2px;
@@ -172,6 +179,116 @@ a.fm-small:hover {
 .fm-root .fm-input:focus-visible,
 .fm-root .fm-date:focus-visible {
   outline: none;
+}
+
+.fm-toggle {
+  font: inherit;
+  font-size: 24px;
+  color: var(--soft);
+  background: none;
+  border: 0;
+  margin-top: 22px;
+  cursor: pointer;
+}
+.fm-toggle:active {
+  color: var(--ink);
+}
+.fm-formacts {
+  margin-top: 18px;
+  font-size: 28px;
+}
+.fm-note {
+  margin-top: 12px;
+}
+
+/* Repeat picker */
+.fm-repeat {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.fm-repeatbtn {
+  font: inherit;
+  font-size: 24px;
+  color: var(--soft);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.fm-repeatbtn.fm-open {
+  color: var(--ink);
+}
+.fm-ranges.fm-presets {
+  margin-top: 12px;
+}
+.fm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 8px;
+  margin-top: 14px;
+}
+.fm-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+  font-size: 26px;
+}
+.fm-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.fm-step {
+  font: inherit;
+  font-size: 26px;
+  line-height: 1;
+  width: 34px;
+  height: 34px;
+  color: var(--ink);
+  background: transparent;
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  cursor: pointer;
+}
+.fm-step:active {
+  background: var(--ink);
+  color: var(--lcd);
+}
+.fm-step:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.fm-stepval {
+  min-width: 2.4em;
+  text-align: center;
+}
+
+/* Settings */
+.fm-setting {
+  width: 100%;
+  margin-top: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.fm-label {
+  font-size: 34px;
+  font-weight: normal;
+  letter-spacing: 0.04em;
+}
+.fm-setting .fm-ranges {
+  margin-top: 14px;
+}
+.fm-explain {
+  text-wrap: balance;
+  max-width: 320px;
+  margin-top: 18px;
+  line-height: 1.25;
 }
 
 /* Completed */
